@@ -1,198 +1,176 @@
 (function(vanta) {
-  function SysinfoView($$anchor, $$props) {
+  function SysInfoView($$anchor, $$props) {
     var api = $$props.api;
 
     var style = document.createElement('style');
     style.textContent = [
-      '.si-root { padding: 16px; color: var(--text-primary, var(--vanta-text, #f5f5f5)); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }',
-      '.si-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }',
-      '.si-title { font-size: 16px; font-weight: 600; }',
-      '.si-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }',
-      '.si-card { background: var(--surface, var(--vanta-surface, #0a0a0a)); border: 1px solid var(--border, var(--vanta-border, rgba(255,255,255,0.08))); border-radius: 8px; padding: 14px 16px; }',
-      '.si-card.full { grid-column: 1 / -1; }',
-      '.si-card-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.6px; color: var(--accent, var(--vanta-accent, #7b35f0)); margin-bottom: 6px; font-weight: 600; }',
-      '.si-card-value { font-size: 14px; font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace; color: var(--text-primary, var(--vanta-text, #f5f5f5)); line-height: 1.4; word-break: break-word; }',
-      '.si-card-value.loading { color: var(--text-secondary, var(--vanta-text-dim, #666)); font-style: italic; font-family: inherit; }',
-      '.si-card-value.error { color: #f44; font-family: inherit; }',
-      '.si-card-sub { font-size: 12px; color: var(--text-secondary, var(--vanta-text-dim, #888)); margin-top: 4px; }',
-      '.si-usage-track { width: 100%; height: 6px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden; margin-top: 8px; }',
-      '.si-usage-bar { height: 100%; background: var(--accent, var(--vanta-accent, #7b35f0)); border-radius: 3px; transition: width 0.4s ease; }',
-      '.si-usage-bar.warn { background: #f90; }',
-      '.si-usage-bar.crit { background: #f44; }',
-      '.si-btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; background: var(--accent, var(--vanta-accent, #7b35f0)); border: none; border-radius: 6px; color: #fff; font-size: 13px; cursor: pointer; transition: opacity 0.15s; }',
-      '.si-btn:hover { opacity: 0.85; }',
-      '.si-btn:disabled { opacity: 0.4; cursor: not-allowed; }',
+      '.si-root{padding:16px;font-family:-apple-system,system-ui,sans-serif;color:var(--vanta-text,#e8e8e8)}',
+      '.si-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}',
+      '.si-title{font-size:16px;font-weight:600}',
+      '.si-refresh{background:var(--vanta-accent,#7b35f0);color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:6px;transition:opacity .15s}',
+      '.si-refresh:hover{opacity:.85}',
+      '.si-refresh:active{transform:scale(.97)}',
+      '.si-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}',
+      '.si-card{background:var(--vanta-surface,#111);border:1px solid var(--vanta-border,rgba(255,255,255,0.08));border-radius:10px;padding:14px}',
+      '.si-card.si-full{grid-column:1/-1}',
+      '.si-label{font-size:11px;color:var(--vanta-text-dim,#888);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}',
+      '.si-value{font-size:14px;font-weight:500;word-break:break-word;line-height:1.4}',
+      '.si-bar-track{width:100%;height:6px;background:rgba(255,255,255,0.06);border-radius:3px;overflow:hidden;margin-top:10px}',
+      '.si-bar-fill{height:100%;border-radius:3px;transition:width .5s ease,background .3s ease}',
+      '.si-bar-info{display:flex;justify-content:space-between;font-size:11px;color:var(--vanta-text-dim,#888);margin-top:4px}',
+      '.si-loading{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:48px 0;color:var(--vanta-text-dim,#888);font-size:13px}',
+      '.si-spinner{width:24px;height:24px;border:2px solid var(--vanta-border,rgba(255,255,255,0.08));border-top-color:var(--vanta-accent,#7b35f0);border-radius:50%;animation:si-spin .6s linear infinite}',
+      '@keyframes si-spin{to{transform:rotate(360deg)}}'
     ].join('\n');
 
     var root = document.createElement('div');
     root.className = 'si-root';
 
-    function el(tag, cls, text) {
-      var e = document.createElement(tag);
-      if (cls) e.className = cls;
-      if (text !== undefined) e.textContent = text;
-      return e;
-    }
-
-    var cards = {};
-
-    function makeCard(parent, key, label, opts) {
-      var card = el('div', 'si-card' + (opts && opts.full ? ' full' : ''));
-      card.appendChild(el('div', 'si-card-label', label));
-      var val = el('div', 'si-card-value loading', 'loading\u2026');
-      cards[key] = { value: val, card: card };
-      card.appendChild(val);
-      if (opts && opts.sub) {
-        var sub = el('div', 'si-card-sub', '');
-        cards[key].sub = sub;
-        card.appendChild(sub);
-      }
-      if (opts && opts.bar) {
-        var track = el('div', 'si-usage-track');
-        var bar = el('div', 'si-usage-bar');
-        bar.style.width = '0%';
-        track.appendChild(bar);
-        card.appendChild(track);
-        cards[key].bar = bar;
-      }
-      parent.appendChild(card);
-    }
-
-    function setCard(key, value, opts) {
-      var c = cards[key];
-      if (!c) return;
-      c.value.textContent = value;
-      c.value.className = opts && opts.error ? 'si-card-value error' : 'si-card-value';
-      if (opts && opts.sub !== undefined && c.sub) {
-        c.sub.textContent = opts.sub;
-      }
-      if (opts && opts.pct !== undefined && c.bar) {
-        var pct = Math.max(0, Math.min(100, opts.pct));
-        c.bar.style.width = pct + '%';
-        c.bar.className = 'si-usage-bar' + (pct > 90 ? ' crit' : pct > 70 ? ' warn' : '');
-      }
-    }
-
-    var header = el('div', 'si-header');
-    header.appendChild(el('span', 'si-title', 'System Info'));
-    var refreshBtn = el('button', 'si-btn', '\u21BB Refresh');
-    header.appendChild(refreshBtn);
-    root.appendChild(header);
-
-    var grid = el('div', 'si-grid');
-    makeCard(grid, 'hostname', 'Hostname');
-    makeCard(grid, 'os', 'Operating System');
-    makeCard(grid, 'uptime', 'Uptime');
-    makeCard(grid, 'cpu', 'CPU', { full: true });
-    makeCard(grid, 'ram', 'Memory (RAM)', { sub: true, bar: true });
-    makeCard(grid, 'disk', 'Disk Usage (/)', { sub: true, bar: true });
-    root.appendChild(grid);
-
     $$anchor.before(style);
     $$anchor.before(root);
 
-    function resetAll() {
-      Object.keys(cards).forEach(function(key) {
-        var c = cards[key];
-        c.value.textContent = 'loading\u2026';
-        c.value.className = 'si-card-value loading';
-        if (c.sub) c.sub.textContent = '';
-        if (c.bar) {
-          c.bar.style.width = '0%';
-          c.bar.className = 'si-usage-bar';
-        }
-      });
+    function barColor(pct) {
+      if (pct > 90) return '#ef4444';
+      if (pct > 70) return '#f59e0b';
+      return 'var(--vanta-accent, #7b35f0)';
     }
 
-    async function loadAll() {
-      refreshBtn.disabled = true;
-      refreshBtn.textContent = '\u21BB Loading\u2026';
-      resetAll();
+    function humanSize(kb) {
+      if (kb < 1024) return kb + ' KB';
+      if (kb < 1048576) return (kb / 1024).toFixed(1) + ' MB';
+      return (kb / 1048576).toFixed(1) + ' GB';
+    }
 
+    function esc(s) {
+      var d = document.createElement('span');
+      d.textContent = s;
+      return d.innerHTML;
+    }
+
+    function makeCard(label, value, full) {
+      var c = document.createElement('div');
+      c.className = 'si-card' + (full ? ' si-full' : '');
+      var l = document.createElement('div');
+      l.className = 'si-label';
+      l.textContent = label;
+      var v = document.createElement('div');
+      v.className = 'si-value';
+      v.textContent = value;
+      c.appendChild(l);
+      c.appendChild(v);
+      return c;
+    }
+
+    function makeBarCard(label, used, total, pct, full) {
+      var c = document.createElement('div');
+      c.className = 'si-card' + (full ? ' si-full' : '');
+      var color = barColor(pct);
+      c.innerHTML =
+        '<div class="si-label">' + esc(label) + '</div>' +
+        '<div class="si-value">' + esc(used) + ' / ' + esc(total) + '</div>' +
+        '<div class="si-bar-track"><div class="si-bar-fill" style="width:' + pct + '%;background:' + color + '"></div></div>' +
+        '<div class="si-bar-info"><span>' + pct + '% used</span></div>';
+      return c;
+    }
+
+    function showLoading() {
+      root.innerHTML =
+        '<div class="si-loading">' +
+          '<div class="si-spinner"></div>' +
+          '<div>Gathering system info\u2026</div>' +
+        '</div>';
+    }
+
+    async function refresh() {
+      showLoading();
       try {
-        var hn = await api.shell.execute('hostname');
-        setCard('hostname', hn.trim());
-      } catch (e) {
-        setCard('hostname', 'failed', { error: true });
-      }
+        var r = await Promise.allSettled([
+          api.shell.execute('hostname', []),
+          api.shell.execute('uname', ['-sr']),
+          api.shell.execute('uptime', ['-p']),
+          api.shell.execute('sh', ['-c', "lscpu | grep 'Model name' | head -1 | sed 's/.*: *//' "]),
+          api.shell.execute('free', []),
+          api.shell.execute('df', ['-h', '/'])
+        ]);
 
-      try {
-        var os = await api.shell.execute('uname', ['-sr']);
-        setCard('os', os.trim());
-      } catch (e) {
-        setCard('os', 'failed', { error: true });
-      }
+        var v = function(i) {
+          return r[i].status === 'fulfilled' ? r[i].value.trim() : 'N/A';
+        };
 
-      try {
-        var up = await api.shell.execute('uptime', ['-p']);
-        setCard('uptime', up.trim().replace(/^up\s+/, ''));
-      } catch (e) {
-        setCard('uptime', 'failed', { error: true });
-      }
+        var hostname = v(0);
+        var os = v(1);
+        var uptime = v(2).replace(/^up\s+/, '');
+        var cpu = v(3) || 'Unknown CPU';
 
-      try {
-        var cpuRaw = await api.shell.execute('bash', ['-c', 'lscpu | grep "Model name"']);
-        var cpuName = cpuRaw.replace(/^.*Model name:\s*/, '').trim();
-        setCard('cpu', cpuName || cpuRaw.trim());
-      } catch (e) {
-        setCard('cpu', 'failed to retrieve', { error: true });
-      }
-
-      try {
-        var memRaw = await api.shell.execute('bash', ['-c', 'free -h | grep Mem']);
-        var memParts = memRaw.trim().split(/\s+/);
-        var memTotal = memParts[1] || '?';
-        var memUsed = memParts[2] || '?';
-
-        var memPctRaw = await api.shell.execute('bash', ['-c', "free | grep Mem | awk '{printf \"%.0f\", $3/$2 * 100}'"]);
-        var memPct = parseInt(memPctRaw.trim(), 10) || 0;
-
-        setCard('ram', memUsed + ' / ' + memTotal, {
-          sub: memPct + '% used',
-          pct: memPct,
-        });
-      } catch (e) {
-        setCard('ram', 'failed', { error: true });
-      }
-
-      try {
-        var diskRaw = await api.shell.execute('df', ['-h', '/']);
-        var diskLines = diskRaw.trim().split('\n');
-        if (diskLines.length >= 2) {
-          var dp = diskLines[1].split(/\s+/);
-          var diskTotal = dp[1] || '?';
-          var diskUsed = dp[2] || '?';
-          var diskPctStr = dp[4] || '0%';
-          var diskPct = parseInt(diskPctStr, 10) || 0;
-
-          setCard('disk', diskUsed + ' / ' + diskTotal, {
-            sub: diskPctStr + ' used',
-            pct: diskPct,
+        var ramUsed = '?', ramTotal = '?', ramPct = 0;
+        if (r[4].status === 'fulfilled') {
+          var memLine = r[4].value.split('\n').find(function(l) {
+            return /^Mem:/.test(l);
           });
-        } else {
-          setCard('disk', diskRaw.trim());
+          if (memLine) {
+            var mp = memLine.split(/\s+/);
+            var totalKb = parseInt(mp[1]) || 1;
+            var usedKb = parseInt(mp[2]) || 0;
+            ramPct = Math.round((usedKb / totalKb) * 100);
+            ramTotal = humanSize(totalKb);
+            ramUsed = humanSize(usedKb);
+          }
         }
-      } catch (e) {
-        setCard('disk', 'failed', { error: true });
-      }
 
-      refreshBtn.disabled = false;
-      refreshBtn.textContent = '\u21BB Refresh';
+        var diskUsed = '?', diskTotal = '?', diskPct = 0;
+        if (r[5].status === 'fulfilled') {
+          var lines = r[5].value.trim().split('\n');
+          if (lines.length > 1) {
+            var dp = lines[1].split(/\s+/);
+            diskTotal = dp[1] || '?';
+            diskUsed = dp[2] || '?';
+            diskPct = parseInt(dp[4]) || 0;
+          }
+        }
+
+        root.innerHTML = '';
+
+        var header = document.createElement('div');
+        header.className = 'si-header';
+        var title = document.createElement('span');
+        title.className = 'si-title';
+        title.textContent = 'System Info';
+        header.appendChild(title);
+
+        var btn = document.createElement('button');
+        btn.className = 'si-refresh';
+        btn.innerHTML =
+          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">' +
+          '<path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/>' +
+          '<path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>';
+        var btnText = document.createElement('span');
+        btnText.textContent = 'Refresh';
+        btn.appendChild(btnText);
+        btn.onclick = refresh;
+        header.appendChild(btn);
+        root.appendChild(header);
+
+        var grid = document.createElement('div');
+        grid.className = 'si-grid';
+        grid.appendChild(makeCard('Hostname', hostname));
+        grid.appendChild(makeCard('Operating System', os));
+        grid.appendChild(makeCard('Uptime', uptime));
+        grid.appendChild(makeCard('CPU', cpu, true));
+        grid.appendChild(makeBarCard('RAM', ramUsed, ramTotal, ramPct));
+        grid.appendChild(makeBarCard('Disk (/)', diskUsed, diskTotal, diskPct));
+        root.appendChild(grid);
+      } catch (e) {
+        root.innerHTML =
+          '<div class="si-loading" style="color:#ef4444">' +
+          'Failed to load system info: ' + esc(String(e)) +
+          '</div>';
+      }
     }
 
-    refreshBtn.addEventListener('click', function() {
-      if (!root.isConnected) return;
-      loadAll();
-    });
-
-    loadAll();
+    refresh();
   }
 
   vanta.registerExtension('sysinfo', {
-    commands: {
-      'overview': {
-        component: SysinfoView
-      }
-    }
+    commands: { 'overview': { component: SysInfoView } }
   });
 })(window.__vanta_host);

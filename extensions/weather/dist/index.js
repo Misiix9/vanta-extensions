@@ -1,355 +1,411 @@
-(function (vanta) {
-  var WMO = {
-    0: ["Clear sky", "\u2600\uFE0F"],
-    1: ["Mainly clear", "\uD83C\uDF24\uFE0F"],
-    2: ["Partly cloudy", "\u26C5"],
-    3: ["Overcast", "\u2601\uFE0F"],
-    45: ["Fog", "\uD83C\uDF2B\uFE0F"],
-    48: ["Rime fog", "\uD83C\uDF2B\uFE0F"],
-    51: ["Light drizzle", "\uD83C\uDF26\uFE0F"],
-    53: ["Moderate drizzle", "\uD83C\uDF26\uFE0F"],
-    55: ["Dense drizzle", "\uD83C\uDF27\uFE0F"],
-    56: ["Freezing drizzle", "\uD83C\uDF27\uFE0F"],
-    57: ["Heavy freezing drizzle", "\uD83C\uDF27\uFE0F"],
-    61: ["Slight rain", "\uD83C\uDF26\uFE0F"],
-    63: ["Moderate rain", "\uD83C\uDF27\uFE0F"],
-    65: ["Heavy rain", "\uD83C\uDF27\uFE0F"],
-    66: ["Freezing rain", "\uD83C\uDF27\uFE0F"],
-    67: ["Heavy freezing rain", "\uD83C\uDF27\uFE0F"],
-    71: ["Slight snow", "\uD83C\uDF28\uFE0F"],
-    73: ["Moderate snow", "\uD83C\uDF28\uFE0F"],
-    75: ["Heavy snow", "\u2744\uFE0F"],
-    77: ["Snow grains", "\u2744\uFE0F"],
-    80: ["Slight showers", "\uD83C\uDF26\uFE0F"],
-    81: ["Moderate showers", "\uD83C\uDF27\uFE0F"],
-    82: ["Violent showers", "\uD83C\uDF27\uFE0F"],
-    85: ["Slight snow showers", "\uD83C\uDF28\uFE0F"],
-    86: ["Heavy snow showers", "\u2744\uFE0F"],
-    95: ["Thunderstorm", "\u26C8\uFE0F"],
-    96: ["Thunderstorm w/ hail", "\u26C8\uFE0F"],
-    99: ["Heavy thunderstorm", "\u26C8\uFE0F"],
+(function(vanta) {
+
+  var WMO_CODES = {
+    0: ['Clear sky', '\u2600\ufe0f'],
+    1: ['Mainly clear', '\ud83c\udf24\ufe0f'],
+    2: ['Partly cloudy', '\u26c5'],
+    3: ['Overcast', '\u2601\ufe0f'],
+    45: ['Foggy', '\ud83c\udf2b\ufe0f'],
+    48: ['Rime fog', '\ud83c\udf2b\ufe0f'],
+    51: ['Light drizzle', '\ud83c\udf26\ufe0f'],
+    53: ['Moderate drizzle', '\ud83c\udf26\ufe0f'],
+    55: ['Dense drizzle', '\ud83c\udf26\ufe0f'],
+    61: ['Slight rain', '\ud83c\udf27\ufe0f'],
+    63: ['Moderate rain', '\ud83c\udf27\ufe0f'],
+    65: ['Heavy rain', '\ud83c\udf27\ufe0f'],
+    71: ['Slight snow', '\ud83c\udf28\ufe0f'],
+    73: ['Moderate snow', '\ud83c\udf28\ufe0f'],
+    75: ['Heavy snow', '\ud83c\udf28\ufe0f'],
+    77: ['Snow grains', '\u2744\ufe0f'],
+    80: ['Slight showers', '\ud83c\udf26\ufe0f'],
+    81: ['Moderate showers', '\ud83c\udf27\ufe0f'],
+    82: ['Violent showers', '\ud83c\udf27\ufe0f'],
+    85: ['Slight snow showers', '\ud83c\udf28\ufe0f'],
+    86: ['Heavy snow showers', '\ud83c\udf28\ufe0f'],
+    95: ['Thunderstorm', '\u26c8\ufe0f'],
+    96: ['Thunderstorm with hail', '\u26c8\ufe0f'],
+    99: ['Thunderstorm with heavy hail', '\u26c8\ufe0f']
   };
 
-  function wmo(code) {
-    var w = WMO[code];
-    return w ? { desc: w[0], icon: w[1] } : { desc: "Unknown", icon: "\uD83C\uDF21\uFE0F" };
+  function wmoLabel(code) {
+    var entry = WMO_CODES[code];
+    return entry ? entry[0] : 'Unknown';
   }
 
-  function fmtDay(dateStr) {
-    var d = new Date(dateStr + "T12:00:00");
-    var days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-    var months = [
-      "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-      "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
-    ];
-    return days[d.getDay()] + ", " + months[d.getMonth()] + " " + d.getDate();
+  function wmoEmoji(code) {
+    var entry = WMO_CODES[code];
+    return entry ? entry[1] : '\u2753';
   }
 
-  function h(tag, cls, text) {
-    var e = document.createElement(tag);
-    if (cls) e.className = cls;
-    if (text !== undefined) e.textContent = text;
-    return e;
-  }
-
-  var CSS = [
-    ".wx{font-family:system-ui,-apple-system,sans-serif;padding:12px;display:flex;flex-direction:column;gap:12px}",
-    ".wx-search{display:flex;gap:8px}",
-    ".wx-input{flex:1;padding:10px 12px;background:var(--vanta-bg,#000);border:1px solid var(--vanta-border,rgba(123,53,240,.14));border-radius:var(--vanta-radius,8px);color:var(--vanta-text,#ebebeb);font-size:14px;outline:none;transition:border-color .14s}",
-    ".wx-input:focus{border-color:var(--vanta-accent,#7b35f0);box-shadow:0 0 0 1px var(--vanta-accent-glow,rgba(123,53,240,.3))}",
-    ".wx-input::placeholder{color:var(--vanta-text-dim,#555)}",
-    ".wx-btn{padding:10px 16px;background:var(--vanta-accent,#7b35f0);color:#fff;border:none;border-radius:var(--vanta-radius,8px);font-weight:600;font-size:13px;cursor:pointer;transition:background .14s,box-shadow .14s}",
-    ".wx-btn:hover{background:var(--vanta-accent-glow,#9b5ff8);box-shadow:0 0 16px var(--vanta-accent-glow,rgba(123,53,240,.4))}",
-    ".wx-btn-save{padding:6px 12px;font-size:12px;background:rgba(123,53,240,.15);color:var(--vanta-accent,#7b35f0);border:none;border-radius:6px;cursor:pointer;font-weight:600;transition:background .14s}",
-    ".wx-btn-save:hover{background:rgba(123,53,240,.28)}",
-    ".wx-btn-rm{padding:4px 8px;font-size:11px;background:none;border:1px solid rgba(255,68,68,.25);color:#f55;cursor:pointer;border-radius:6px;transition:background .14s}",
-    ".wx-btn-rm:hover{background:rgba(255,68,68,.1)}",
-    ".wx-msg{padding:32px;text-align:center;font-size:13px}",
-    ".wx-msg--loading{color:var(--vanta-text-dim,#888)}",
-    ".wx-msg--error{color:#f55}",
-    ".wx-card{background:var(--vanta-surface,#0c0c0c);border:1px solid var(--vanta-border,rgba(123,53,240,.14));border-radius:var(--vanta-radius,12px);padding:20px;display:flex;flex-direction:column;gap:12px}",
-    ".wx-loc-row{display:flex;align-items:center;justify-content:space-between;gap:8px}",
-    ".wx-loc-name{font-size:16px;font-weight:700;color:var(--vanta-text,#ebebeb)}",
-    ".wx-main{display:flex;align-items:center;gap:16px}",
-    ".wx-emoji{font-size:48px;line-height:1}",
-    ".wx-temp{font-size:42px;font-weight:700;color:var(--vanta-text,#ebebeb);line-height:1}",
-    ".wx-cond{font-size:14px;color:var(--vanta-text-dim,#888)}",
-    ".wx-stats{display:flex;gap:16px}",
-    ".wx-stat{font-size:13px;color:var(--vanta-text-dim,#888)}",
-    ".wx-fc{background:var(--vanta-surface,#0c0c0c);border:1px solid var(--vanta-border,rgba(123,53,240,.14));border-radius:var(--vanta-radius,12px);padding:16px;display:flex;flex-direction:column;gap:12px}",
-    ".wx-fc-title{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--vanta-text-dim,#555)}",
-    ".wx-fc-grid{display:flex;gap:8px}",
-    ".wx-fc-day{flex:1;background:var(--vanta-bg,#000);border:1px solid var(--vanta-border,rgba(123,53,240,.14));border-radius:var(--vanta-radius,8px);padding:12px;display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center}",
-    ".wx-fc-date{font-size:11px;font-weight:600;color:var(--vanta-text-dim,#888)}",
-    ".wx-fc-icon{font-size:28px;line-height:1}",
-    ".wx-fc-temps{font-size:13px;font-weight:600;color:var(--vanta-text,#ebebeb)}",
-    ".wx-fc-desc{font-size:11px;color:var(--vanta-text-dim,#555)}",
-    ".wx-results{display:flex;flex-direction:column;gap:4px}",
-    ".wx-result{display:flex;flex-direction:column;gap:2px;padding:10px 12px;background:var(--vanta-surface,#0c0c0c);border:1px solid transparent;border-radius:var(--vanta-radius,8px);color:var(--vanta-text,#ebebeb);cursor:pointer;text-align:left;transition:background .14s,border-color .14s}",
-    ".wx-result:hover{background:rgba(123,53,240,.08);border-color:var(--vanta-border,rgba(123,53,240,.14))}",
-    ".wx-result-name{font-weight:600;font-size:14px}",
-    ".wx-result-sub{font-size:12px;color:var(--vanta-text-dim,#555)}",
-    ".wx-saved{display:flex;flex-direction:column;gap:8px}",
-    ".wx-saved-hdr{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--vanta-text-dim,#555);padding:4px 0}",
-    ".wx-saved-row{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--vanta-surface,#0c0c0c);border:1px solid var(--vanta-border,rgba(123,53,240,.14));border-radius:var(--vanta-radius,8px)}",
-    ".wx-saved-name{font-size:13px;font-weight:500;color:var(--vanta-text,#ebebeb);cursor:pointer;background:none;border:none;padding:0;text-align:left}",
-    ".wx-saved-name:hover{color:var(--vanta-accent,#7b35f0)}",
-  ].join("\n");
+  var DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
   function WeatherView($$anchor, $$props) {
     var api = $$props.api;
-    var saved = [];
 
-    var style = document.createElement("style");
-    style.textContent = CSS;
+    var style = document.createElement('style');
+    style.textContent = [
+      '.weather-root { padding: 16px; font-family: inherit; color: var(--vanta-text, #e8e8e8); height: 100%; overflow-y: auto; box-sizing: border-box; }',
+      '.weather-search-row { display: flex; gap: 8px; margin-bottom: 16px; }',
+      '.weather-input { flex: 1; background: rgba(255,255,255,0.06); color: var(--vanta-text, #e8e8e8); border: 1px solid var(--vanta-border, rgba(255,255,255,0.08)); border-radius: 6px; padding: 8px 12px; font-size: 13px; outline: none; }',
+      '.weather-input:focus { border-color: var(--vanta-accent, #7b35f0); }',
+      '.weather-input::placeholder { color: var(--vanta-text-dim, #888); }',
+      '.weather-btn { background: var(--vanta-accent, #7b35f0); color: #fff; border: none; border-radius: 6px; padding: 8px 16px; cursor: pointer; font-size: 13px; white-space: nowrap; }',
+      '.weather-btn:hover { opacity: 0.9; }',
+      '.weather-btn-sm { background: transparent; color: var(--vanta-text-dim, #888); border: 1px solid var(--vanta-border, rgba(255,255,255,0.08)); border-radius: 6px; padding: 4px 10px; cursor: pointer; font-size: 12px; }',
+      '.weather-btn-sm:hover { color: var(--vanta-text, #e8e8e8); border-color: var(--vanta-accent, #7b35f0); }',
+      '.weather-btn-danger { background: transparent; color: #e85454; border: 1px solid rgba(232,84,84,0.3); border-radius: 6px; padding: 4px 10px; cursor: pointer; font-size: 12px; }',
+      '.weather-btn-danger:hover { background: rgba(232,84,84,0.1); }',
+      '.weather-results { background: var(--vanta-surface, #111); border: 1px solid var(--vanta-border, rgba(255,255,255,0.08)); border-radius: 8px; margin-bottom: 16px; overflow: hidden; }',
+      '.weather-result-item { padding: 10px 14px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--vanta-border, rgba(255,255,255,0.08)); font-size: 13px; }',
+      '.weather-result-item:last-child { border-bottom: none; }',
+      '.weather-result-item:hover { background: rgba(255,255,255,0.04); }',
+      '.weather-result-name { color: var(--vanta-text, #e8e8e8); }',
+      '.weather-result-country { color: var(--vanta-text-dim, #888); font-size: 12px; }',
+      '.weather-current { background: var(--vanta-surface, #111); border: 1px solid var(--vanta-border, rgba(255,255,255,0.08)); border-radius: 12px; padding: 20px; margin-bottom: 16px; }',
+      '.weather-current-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }',
+      '.weather-location { font-size: 16px; font-weight: 600; color: var(--vanta-text, #e8e8e8); }',
+      '.weather-condition { font-size: 13px; color: var(--vanta-text-dim, #888); margin-top: 4px; }',
+      '.weather-emoji { font-size: 40px; line-height: 1; }',
+      '.weather-temp { font-size: 36px; font-weight: 700; color: var(--vanta-text, #e8e8e8); margin-bottom: 12px; }',
+      '.weather-details { display: flex; gap: 20px; }',
+      '.weather-detail { font-size: 13px; color: var(--vanta-text-dim, #888); }',
+      '.weather-detail span { color: var(--vanta-text, #e8e8e8); font-weight: 500; }',
+      '.weather-forecast { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }',
+      '.weather-forecast-card { background: var(--vanta-surface, #111); border: 1px solid var(--vanta-border, rgba(255,255,255,0.08)); border-radius: 10px; padding: 14px; text-align: center; }',
+      '.weather-forecast-day { font-size: 12px; font-weight: 600; color: var(--vanta-text-dim, #888); margin-bottom: 6px; text-transform: uppercase; }',
+      '.weather-forecast-emoji { font-size: 24px; margin-bottom: 6px; }',
+      '.weather-forecast-temps { font-size: 13px; color: var(--vanta-text, #e8e8e8); }',
+      '.weather-forecast-lo { color: var(--vanta-text-dim, #888); margin-left: 4px; }',
+      '.weather-saved-section { margin-top: 8px; }',
+      '.weather-section-title { font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--vanta-text-dim, #888); margin-bottom: 8px; font-weight: 600; }',
+      '.weather-saved-grid { display: flex; flex-wrap: wrap; gap: 8px; }',
+      '.weather-saved-chip { display: flex; align-items: center; gap: 6px; background: var(--vanta-surface, #111); border: 1px solid var(--vanta-border, rgba(255,255,255,0.08)); border-radius: 6px; padding: 6px 10px; cursor: pointer; font-size: 13px; color: var(--vanta-text, #e8e8e8); }',
+      '.weather-saved-chip:hover { border-color: var(--vanta-accent, #7b35f0); }',
+      '.weather-remove-btn { background: none; border: none; color: var(--vanta-text-dim, #888); cursor: pointer; font-size: 14px; padding: 0 2px; line-height: 1; }',
+      '.weather-remove-btn:hover { color: #e85454; }',
+      '.weather-loading { text-align: center; padding: 40px 0; color: var(--vanta-text-dim, #888); font-size: 14px; }',
+      '.weather-error { text-align: center; padding: 20px; color: #e85454; font-size: 13px; background: rgba(232,84,84,0.06); border-radius: 8px; margin-bottom: 12px; }',
+      '.weather-actions { display: flex; gap: 8px; margin-bottom: 16px; }'
+    ].join('\n');
 
-    var root = h("div", "wx");
-    root.appendChild(style);
-    $$anchor.before(root);
+    var root = document.createElement('div');
+    root.className = 'weather-root';
 
-    // --- Search row ---
-    var searchRow = h("div", "wx-search");
-    var input = document.createElement("input");
-    input.type = "text";
-    input.className = "wx-input";
-    input.placeholder = "Search city\u2026";
-    searchRow.appendChild(input);
+    var state = {
+      loading: true,
+      error: null,
+      locationName: '',
+      lat: null,
+      lon: null,
+      current: null,
+      daily: null,
+      searchQuery: '',
+      searchResults: null,
+      savedLocations: [],
+      isSaved: false
+    };
 
-    var searchBtn = h("button", "wx-btn", "Search");
-    searchRow.appendChild(searchBtn);
-    root.appendChild(searchRow);
+    function render() {
+      root.innerHTML = '';
 
-    // --- Content area ---
-    var content = h("div", "wx-content");
-    root.appendChild(content);
+      var searchRow = document.createElement('div');
+      searchRow.className = 'weather-search-row';
+      var searchInput = document.createElement('input');
+      searchInput.className = 'weather-input';
+      searchInput.type = 'text';
+      searchInput.placeholder = 'Search city\u2026';
+      searchInput.value = state.searchQuery;
 
-    // --- Saved locations area ---
-    var savedEl = h("div", "wx-saved");
-    root.appendChild(savedEl);
-
-    // --- Helpers ---
-    function setMsg(el, text, type) {
-      el.innerHTML = "";
-      var msg = h("div", "wx-msg wx-msg--" + type, text);
-      el.appendChild(msg);
-    }
-
-    // --- Fetch & render weather ---
-    async function fetchWeather(lat, lon, name) {
-      setMsg(content, "Loading weather data\u2026", "loading");
-      try {
-        var url =
-          "https://api.open-meteo.com/v1/forecast?latitude=" + lat +
-          "&longitude=" + lon +
-          "&current=temperature_2m,relative_humidity_2m,wind_speed_10m,weather_code" +
-          "&daily=weather_code,temperature_2m_max,temperature_2m_min" +
-          "&timezone=auto&forecast_days=3";
-        var raw = await api.network.fetch(url);
-        var data = JSON.parse(raw);
-        renderWeather(data, name, lat, lon);
-      } catch (_) {
-        setMsg(content, "Failed to load weather data.", "error");
-      }
-    }
-
-    function renderWeather(data, name, lat, lon) {
-      content.innerHTML = "";
-      var cur = data.current;
-      var w = wmo(cur.weather_code);
-      var alreadySaved = saved.some(function (s) { return s.name === name; });
-
-      // -- Current card --
-      var card = h("div", "wx-card");
-
-      var locRow = h("div", "wx-loc-row");
-      locRow.appendChild(h("span", "wx-loc-name", name));
-      if (!alreadySaved) {
-        var saveBtn = h("button", "wx-btn-save", "Save Location");
-        saveBtn.addEventListener("click", function () {
-          saveLocation(name, lat, lon);
-        });
-        locRow.appendChild(saveBtn);
-      }
-      card.appendChild(locRow);
-
-      var mainRow = h("div", "wx-main");
-      mainRow.appendChild(h("span", "wx-emoji", w.icon));
-      mainRow.appendChild(
-        h("span", "wx-temp", Math.round(cur.temperature_2m) + "\u00B0C")
-      );
-      card.appendChild(mainRow);
-
-      card.appendChild(h("span", "wx-cond", w.desc));
-
-      var stats = h("div", "wx-stats");
-      stats.appendChild(
-        h("span", "wx-stat", "\uD83D\uDCA7 Humidity: " + cur.relative_humidity_2m + "%")
-      );
-      stats.appendChild(
-        h("span", "wx-stat", "\uD83D\uDCA8 Wind: " + cur.wind_speed_10m + " km/h")
-      );
-      card.appendChild(stats);
-      content.appendChild(card);
-
-      // -- Forecast --
-      var fc = h("div", "wx-fc");
-      fc.appendChild(h("span", "wx-fc-title", "3-Day Forecast"));
-
-      var grid = h("div", "wx-fc-grid");
-      var daily = data.daily;
-      for (var i = 0; i < daily.time.length; i++) {
-        var dw = wmo(daily.weather_code[i]);
-        var day = h("div", "wx-fc-day");
-        day.appendChild(
-          h("span", "wx-fc-date", i === 0 ? "Today" : fmtDay(daily.time[i]))
-        );
-        day.appendChild(h("span", "wx-fc-icon", dw.icon));
-        day.appendChild(
-          h(
-            "span",
-            "wx-fc-temps",
-            Math.round(daily.temperature_2m_max[i]) +
-              "\u00B0 / " +
-              Math.round(daily.temperature_2m_min[i]) +
-              "\u00B0"
-          )
-        );
-        day.appendChild(h("span", "wx-fc-desc", dw.desc));
-        grid.appendChild(day);
-      }
-      fc.appendChild(grid);
-      content.appendChild(fc);
-    }
-
-    // --- City search ---
-    async function searchCity(query) {
-      var q = query.trim();
-      if (!q) return;
-      setMsg(content, "Searching\u2026", "loading");
-      try {
-        var raw = await api.network.fetch(
-          "https://geocoding-api.open-meteo.com/v1/search?name=" +
-            encodeURIComponent(q) +
-            "&count=5"
-        );
-        var data = JSON.parse(raw);
-        if (!data.results || !data.results.length) {
-          setMsg(content, 'No cities found for "' + q + '".', "error");
-          return;
+      var searchTimeout = null;
+      searchInput.addEventListener('input', function(e) {
+        state.searchQuery = e.target.value;
+        clearTimeout(searchTimeout);
+        if (state.searchQuery.length >= 2) {
+          searchTimeout = setTimeout(function() { searchCity(state.searchQuery); }, 350);
+        } else {
+          state.searchResults = null;
+          render();
         }
-        content.innerHTML = "";
-        var list = h("div", "wx-results");
-        data.results.forEach(function (r) {
-          var parts = [r.admin1, r.country].filter(Boolean);
-          var sub = parts.join(", ");
-          var label = r.name + (sub ? ", " + sub : "");
+      });
+      searchInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+          state.searchQuery = '';
+          state.searchResults = null;
+          render();
+        }
+      });
+      searchRow.appendChild(searchInput);
+      root.appendChild(searchRow);
 
-          var btn = h("button", "wx-result");
-          btn.appendChild(h("span", "wx-result-name", r.name));
-          if (sub) btn.appendChild(h("span", "wx-result-sub", sub));
-          btn.addEventListener("click", function () {
-            fetchWeather(r.latitude, r.longitude, label);
+      if (state.searchResults && state.searchResults.length > 0) {
+        var resultsDiv = document.createElement('div');
+        resultsDiv.className = 'weather-results';
+        state.searchResults.forEach(function(r) {
+          var item = document.createElement('div');
+          item.className = 'weather-result-item';
+          var nameSpan = document.createElement('span');
+          nameSpan.className = 'weather-result-name';
+          nameSpan.textContent = r.name;
+          var countrySpan = document.createElement('span');
+          countrySpan.className = 'weather-result-country';
+          var parts = [];
+          if (r.admin1) parts.push(r.admin1);
+          if (r.country) parts.push(r.country);
+          countrySpan.textContent = parts.join(', ');
+          item.appendChild(nameSpan);
+          item.appendChild(countrySpan);
+          item.addEventListener('click', function() {
+            state.searchQuery = '';
+            state.searchResults = null;
+            loadWeather(r.latitude, r.longitude, r.name + (r.country ? ', ' + r.country : ''));
           });
-          list.appendChild(btn);
+          resultsDiv.appendChild(item);
         });
-        content.appendChild(list);
-      } catch (_) {
-        setMsg(content, "Search failed.", "error");
-      }
-    }
-
-    // --- Saved locations ---
-    async function saveLocation(name, lat, lon) {
-      if (saved.some(function (s) { return s.name === name; })) {
-        api.toast({ title: "Already saved", message: name, type: "info" });
+        root.appendChild(resultsDiv);
+        setTimeout(function() { searchInput.focus(); }, 0);
         return;
       }
-      saved.push({ name: name, lat: lat, lon: lon });
-      await api.storage.set("weather_locations", JSON.stringify(saved));
-      api.toast({ title: "Location Saved", message: name, type: "success" });
-      renderSaved();
-      fetchWeather(lat, lon, name);
-    }
 
-    async function removeSaved(idx) {
-      saved.splice(idx, 1);
-      await api.storage.set("weather_locations", JSON.stringify(saved));
+      if (state.searchResults && state.searchResults.length === 0) {
+        var noRes = document.createElement('div');
+        noRes.className = 'weather-error';
+        noRes.textContent = 'No cities found';
+        root.appendChild(noRes);
+      }
+
+      if (state.loading) {
+        var ld = document.createElement('div');
+        ld.className = 'weather-loading';
+        ld.textContent = 'Loading weather\u2026';
+        root.appendChild(ld);
+        renderSaved();
+        return;
+      }
+
+      if (state.error) {
+        var errDiv = document.createElement('div');
+        errDiv.className = 'weather-error';
+        errDiv.textContent = state.error;
+        root.appendChild(errDiv);
+        renderSaved();
+        return;
+      }
+
+      if (state.current) {
+        var card = document.createElement('div');
+        card.className = 'weather-current';
+
+        var hdr = document.createElement('div');
+        hdr.className = 'weather-current-header';
+        var leftCol = document.createElement('div');
+        var loc = document.createElement('div');
+        loc.className = 'weather-location';
+        loc.textContent = state.locationName;
+        leftCol.appendChild(loc);
+        var cond = document.createElement('div');
+        cond.className = 'weather-condition';
+        cond.textContent = wmoLabel(state.current.weather_code);
+        leftCol.appendChild(cond);
+        hdr.appendChild(leftCol);
+        var emojiDiv = document.createElement('div');
+        emojiDiv.className = 'weather-emoji';
+        emojiDiv.textContent = wmoEmoji(state.current.weather_code);
+        hdr.appendChild(emojiDiv);
+        card.appendChild(hdr);
+
+        var tempDiv = document.createElement('div');
+        tempDiv.className = 'weather-temp';
+        tempDiv.textContent = Math.round(state.current.temperature_2m) + '\u00b0C';
+        card.appendChild(tempDiv);
+
+        var detailsDiv = document.createElement('div');
+        detailsDiv.className = 'weather-details';
+        var humDetail = document.createElement('div');
+        humDetail.className = 'weather-detail';
+        humDetail.innerHTML = 'Humidity <span>' + state.current.relative_humidity_2m + '%</span>';
+        detailsDiv.appendChild(humDetail);
+        var windDetail = document.createElement('div');
+        windDetail.className = 'weather-detail';
+        windDetail.innerHTML = 'Wind <span>' + state.current.wind_speed_10m + ' km/h</span>';
+        detailsDiv.appendChild(windDetail);
+        card.appendChild(detailsDiv);
+        root.appendChild(card);
+
+        var actionsDiv = document.createElement('div');
+        actionsDiv.className = 'weather-actions';
+        if (state.isSaved) {
+          var removeBtn = document.createElement('button');
+          removeBtn.className = 'weather-btn-danger';
+          removeBtn.textContent = 'Remove from saved';
+          removeBtn.addEventListener('click', function() { removeSavedLocation(state.locationName); });
+          actionsDiv.appendChild(removeBtn);
+        } else {
+          var saveBtn = document.createElement('button');
+          saveBtn.className = 'weather-btn-sm';
+          saveBtn.textContent = 'Save location';
+          saveBtn.addEventListener('click', function() { saveCurrentLocation(); });
+          actionsDiv.appendChild(saveBtn);
+        }
+        root.appendChild(actionsDiv);
+      }
+
+      if (state.daily) {
+        var forecastGrid = document.createElement('div');
+        forecastGrid.className = 'weather-forecast';
+
+        for (var i = 0; i < state.daily.time.length; i++) {
+          var fCard = document.createElement('div');
+          fCard.className = 'weather-forecast-card';
+          var dayLabel = document.createElement('div');
+          dayLabel.className = 'weather-forecast-day';
+          var d = new Date(state.daily.time[i] + 'T00:00:00');
+          dayLabel.textContent = i === 0 ? 'Today' : DAYS[d.getDay()];
+          fCard.appendChild(dayLabel);
+          var fEmoji = document.createElement('div');
+          fEmoji.className = 'weather-forecast-emoji';
+          fEmoji.textContent = wmoEmoji(state.daily.weather_code[i]);
+          fCard.appendChild(fEmoji);
+          var fTemps = document.createElement('div');
+          fTemps.className = 'weather-forecast-temps';
+          fTemps.innerHTML = Math.round(state.daily.temperature_2m_max[i]) + '\u00b0' +
+            '<span class="weather-forecast-lo">' + Math.round(state.daily.temperature_2m_min[i]) + '\u00b0</span>';
+          fCard.appendChild(fTemps);
+          forecastGrid.appendChild(fCard);
+        }
+        root.appendChild(forecastGrid);
+      }
+
       renderSaved();
     }
 
     function renderSaved() {
-      savedEl.innerHTML = "";
-      if (!saved.length) return;
-
-      savedEl.appendChild(h("span", "wx-saved-hdr", "Saved Locations"));
-      saved.forEach(function (loc, i) {
-        var row = h("div", "wx-saved-row");
-
-        var nameBtn = h("button", "wx-saved-name", loc.name);
-        nameBtn.addEventListener("click", function () {
-          fetchWeather(loc.lat, loc.lon, loc.name);
+      if (state.savedLocations.length === 0) return;
+      var section = document.createElement('div');
+      section.className = 'weather-saved-section';
+      var title = document.createElement('div');
+      title.className = 'weather-section-title';
+      title.textContent = 'Saved Locations';
+      section.appendChild(title);
+      var grid = document.createElement('div');
+      grid.className = 'weather-saved-grid';
+      state.savedLocations.forEach(function(loc) {
+        var chip = document.createElement('div');
+        chip.className = 'weather-saved-chip';
+        var nameSpan = document.createElement('span');
+        nameSpan.textContent = loc.name;
+        nameSpan.style.cursor = 'pointer';
+        nameSpan.addEventListener('click', function() {
+          loadWeather(loc.lat, loc.lon, loc.name);
         });
-        row.appendChild(nameBtn);
-
-        var rmBtn = h("button", "wx-btn-rm", "\u2715");
-        rmBtn.addEventListener("click", function () {
-          removeSaved(i);
+        chip.appendChild(nameSpan);
+        var rmBtn = document.createElement('button');
+        rmBtn.className = 'weather-remove-btn';
+        rmBtn.textContent = '\u00d7';
+        rmBtn.addEventListener('click', function(e) {
+          e.stopPropagation();
+          removeSavedLocation(loc.name);
         });
-        row.appendChild(rmBtn);
+        chip.appendChild(rmBtn);
+        grid.appendChild(chip);
+      });
+      section.appendChild(grid);
+      root.appendChild(section);
+    }
 
-        savedEl.appendChild(row);
+    function searchCity(query) {
+      var url = 'https://geocoding-api.open-meteo.com/v1/search?name=' + encodeURIComponent(query) + '&count=5';
+      api.network.fetch(url, { method: 'GET' }).then(function(text) {
+        var data = JSON.parse(text);
+        state.searchResults = data.results || [];
+        render();
+      }).catch(function() {
+        state.searchResults = [];
+        render();
       });
     }
 
-    // --- Events ---
-    searchBtn.addEventListener("click", function () {
-      searchCity(input.value);
-    });
-    input.addEventListener("keydown", function (e) {
-      if (e.key === "Enter") {
-        e.stopPropagation();
-        searchCity(input.value);
-      }
-    });
+    function loadWeather(lat, lon, name) {
+      state.loading = true;
+      state.error = null;
+      state.lat = lat;
+      state.lon = lon;
+      state.locationName = name;
+      state.isSaved = state.savedLocations.some(function(l) { return l.name === name; });
+      render();
 
-    // --- Init ---
-    (async function () {
-      try {
-        var stored = await api.storage.get("weather_locations");
-        if (stored) saved = JSON.parse(stored);
-      } catch (_) {}
-      renderSaved();
+      var url = 'https://api.open-meteo.com/v1/forecast?latitude=' + lat +
+        '&longitude=' + lon +
+        '&current=temperature_2m,relative_humidity_2m,wind_speed_10m,weather_code' +
+        '&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=3';
 
-      try {
-        setMsg(content, "Detecting location\u2026", "loading");
-        var ipRaw = await api.network.fetch("https://ipapi.co/json/");
-        var ip = JSON.parse(ipRaw);
-        if (ip.latitude && ip.longitude) {
-          var locName = ip.city || "Current Location";
-          if (ip.country_name) locName += ", " + ip.country_name;
-          fetchWeather(ip.latitude, ip.longitude, locName);
-        } else {
-          setMsg(
-            content,
-            "Could not detect location. Search for a city above.",
-            "error"
-          );
+      api.network.fetch(url, { method: 'GET' }).then(function(text) {
+        var data = JSON.parse(text);
+        state.current = data.current;
+        state.daily = data.daily;
+        state.loading = false;
+        render();
+      }).catch(function(err) {
+        state.loading = false;
+        state.error = 'Failed to fetch weather: ' + err;
+        render();
+      });
+    }
+
+    function loadSavedLocations() {
+      return api.storage.get('saved_locations').then(function(val) {
+        if (val) {
+          try { state.savedLocations = JSON.parse(val); } catch(e) { state.savedLocations = []; }
         }
-      } catch (_) {
-        setMsg(
-          content,
-          "Could not detect location. Search for a city above.",
-          "error"
-        );
+      }).catch(function() {});
+    }
+
+    function persistSaved() {
+      return api.storage.set('saved_locations', JSON.stringify(state.savedLocations));
+    }
+
+    function saveCurrentLocation() {
+      if (!state.lat || !state.lon || !state.locationName) return;
+      var exists = state.savedLocations.some(function(l) { return l.name === state.locationName; });
+      if (!exists) {
+        state.savedLocations.push({ name: state.locationName, lat: state.lat, lon: state.lon });
+        persistSaved();
       }
-    })();
+      state.isSaved = true;
+      render();
+      api.toast({ title: 'Saved', message: state.locationName + ' added to saved locations', type: 'success' });
+    }
+
+    function removeSavedLocation(name) {
+      state.savedLocations = state.savedLocations.filter(function(l) { return l.name !== name; });
+      persistSaved();
+      if (state.locationName === name) state.isSaved = false;
+      render();
+    }
+
+    function autoDetectAndLoad() {
+      api.network.fetch('https://ipapi.co/json/', { method: 'GET' }).then(function(text) {
+        var geo = JSON.parse(text);
+        var name = geo.city || 'Unknown';
+        if (geo.country_name) name += ', ' + geo.country_name;
+        loadWeather(geo.latitude, geo.longitude, name);
+      }).catch(function() {
+        state.loading = false;
+        state.error = 'Could not detect your location. Search for a city above.';
+        render();
+      });
+    }
+
+    loadSavedLocations().then(function() {
+      render();
+      autoDetectAndLoad();
+    });
+
+    $$anchor.before(style);
+    $$anchor.before(root);
   }
 
-  vanta.registerExtension("weather", {
-    commands: {
-      current: {
-        component: WeatherView,
-      },
-    },
+  vanta.registerExtension('weather', {
+    commands: { 'current': { component: WeatherView } }
   });
+
 })(window.__vanta_host);
