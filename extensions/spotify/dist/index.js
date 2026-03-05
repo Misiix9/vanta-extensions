@@ -14,6 +14,7 @@
     var durationMs = 0;
     var shuffleState = false;
     var repeatState = 'off';
+    var volumePercent = 100;
     var nowPlayingContainer = null;
     var progressFillEl = null;
     var progressCurEl = null;
@@ -21,10 +22,11 @@
     var shuffleBtnRef = null;
     var repeatBtnRef = null;
     var searchTimeout = null;
+    var albumArtUrl = null;
 
     var style = document.createElement('style');
     style.textContent = [
-      '.spot-root{padding:16px;font-family:-apple-system,system-ui,sans-serif;color:var(--vanta-text,#e8e8e8);min-height:200px}',
+      '.spot-root{padding:0;font-family:-apple-system,system-ui,sans-serif;color:var(--vanta-text,#e8e8e8);min-height:200px;overflow-y:auto;max-height:520px}',
       '.spot-setup{display:flex;flex-direction:column;align-items:center;gap:14px;padding:20px 16px;text-align:center}',
       '.spot-setup-icon{opacity:.35}',
       '.spot-setup-title{font-size:18px;font-weight:600;margin-top:2px}',
@@ -44,49 +46,83 @@
       '.spot-input{width:100%;max-width:420px;padding:10px 14px;background:rgba(255,255,255,0.06);color:var(--vanta-text,#e8e8e8);border:1px solid var(--vanta-border,rgba(255,255,255,0.08));border-radius:8px;font-size:13px;outline:none;box-sizing:border-box;transition:border-color .15s}',
       '.spot-input:focus{border-color:var(--vanta-accent,#7b35f0)}',
       '.spot-input::placeholder{color:var(--vanta-text-dim,#888)}',
-      '.spot-btn{background:var(--vanta-accent,#7b35f0);color:#fff;border:none;padding:9px 24px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;transition:opacity .15s}',
+      '.spot-btn{background:var(--vanta-accent,#7b35f0);color:#fff;border:none;padding:9px 24px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;transition:all .15s}',
       '.spot-btn:hover{opacity:.85}',
       '.spot-btn:active{transform:scale(.97)}',
       '.spot-btn:disabled{opacity:.5;cursor:not-allowed;transform:none}',
       '.spot-btn-outline{background:transparent;border:1px solid var(--vanta-border,rgba(255,255,255,0.08));color:var(--vanta-text-dim,#888)}',
-      '.spot-btn-outline:hover{border-color:var(--vanta-text-dim,#888);color:var(--vanta-text,#e8e8e8)}',
+      '.spot-btn-outline:hover{border-color:var(--vanta-accent,#7b35f0);color:var(--vanta-text,#e8e8e8);background:rgba(123,53,240,0.08)}',
       '.spot-btn-sm{font-size:11px;padding:5px 14px}',
-      '.spot-tabs{display:flex;gap:2px;background:var(--vanta-surface,#111);border-radius:8px;padding:3px;margin-bottom:16px}',
+      '.spot-btn-danger{background:transparent;border:1px solid rgba(239,68,68,0.3);color:#ef4444}',
+      '.spot-btn-danger:hover{background:rgba(239,68,68,0.1);border-color:#ef4444}',
+
+      '.spot-player{display:flex;flex-direction:column;gap:0}',
+      '.spot-header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px 0;gap:8px}',
+      '.spot-header-left{display:flex;align-items:center;gap:8px}',
+      '.spot-header-title{font-size:13px;font-weight:600;color:var(--vanta-text,#e8e8e8)}',
+      '.spot-header-dot{width:6px;height:6px;border-radius:50%;background:#22c55e;flex-shrink:0}',
+      '.spot-header-actions{display:flex;gap:4px}',
+      '.spot-icon-btn{width:28px;height:28px;border-radius:6px;border:none;background:transparent;color:var(--vanta-text-dim,#888);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s}',
+      '.spot-icon-btn:hover{background:rgba(255,255,255,0.06);color:var(--vanta-text,#e8e8e8)}',
+      '.spot-icon-btn.accent:hover{background:rgba(123,53,240,0.15);color:var(--vanta-accent,#7b35f0)}',
+
+      '.spot-tabs{display:flex;gap:2px;background:rgba(255,255,255,0.03);border-radius:8px;padding:3px;margin:12px 16px 0}',
       '.spot-tab{flex:1;padding:7px 0;text-align:center;font-size:12px;font-weight:500;border:none;border-radius:6px;cursor:pointer;background:transparent;color:var(--vanta-text-dim,#888);transition:all .15s}',
       '.spot-tab.active{background:var(--vanta-accent,#7b35f0);color:#fff}',
-      '.spot-now{display:flex;flex-direction:column;align-items:center;gap:12px;padding:12px 0}',
-      '.spot-track{font-size:16px;font-weight:600;text-align:center;line-height:1.3}',
-      '.spot-artist{font-size:13px;color:var(--vanta-text-dim,#888);text-align:center}',
-      '.spot-progress-wrap{width:100%;max-width:360px}',
-      '.spot-progress-bar{width:100%;height:4px;background:rgba(255,255,255,0.06);border-radius:2px;overflow:hidden;cursor:pointer;transition:height .1s}',
+
+      '.spot-art-section{display:flex;align-items:flex-start;gap:16px;padding:16px}',
+      '.spot-art-img{width:120px;height:120px;border-radius:10px;object-fit:cover;flex-shrink:0;box-shadow:0 4px 24px rgba(0,0,0,.5)}',
+      '.spot-art-placeholder{width:120px;height:120px;border-radius:10px;flex-shrink:0;background:rgba(255,255,255,0.04);display:flex;align-items:center;justify-content:center;color:var(--vanta-text-dim,#555)}',
+      '.spot-track-info{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;padding-top:4px}',
+      '.spot-track-name{font-size:16px;font-weight:700;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--vanta-text,#f5f5f5)}',
+      '.spot-track-artist{font-size:13px;color:var(--vanta-accent,#a78bfa);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+      '.spot-track-album{font-size:12px;color:var(--vanta-text-dim,#888);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}',
+
+      '.spot-progress-section{padding:0 16px}',
+      '.spot-progress-bar{width:100%;height:4px;background:rgba(255,255,255,0.06);border-radius:2px;overflow:visible;cursor:pointer;transition:height .1s;position:relative}',
       '.spot-progress-bar:hover{height:6px}',
-      '.spot-progress-fill{height:100%;background:var(--vanta-accent,#7b35f0);border-radius:2px;transition:width .3s linear}',
-      '.spot-progress-times{display:flex;justify-content:space-between;font-size:11px;color:var(--vanta-text-dim,#888);margin-top:4px}',
-      '.spot-controls{display:flex;align-items:center;justify-content:center;gap:16px;margin-top:4px}',
+      '.spot-progress-fill{height:100%;background:var(--vanta-accent,#7b35f0);border-radius:2px;transition:width .3s linear;position:relative}',
+      '.spot-progress-thumb{position:absolute;right:-4px;top:50%;transform:translateY(-50%);width:10px;height:10px;border-radius:50%;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.4);opacity:0;transition:opacity .15s}',
+      '.spot-progress-bar:hover .spot-progress-thumb{opacity:1}',
+      '.spot-progress-times{display:flex;justify-content:space-between;font-size:11px;color:var(--vanta-text-dim,#888);margin-top:6px}',
+
+      '.spot-controls{display:flex;align-items:center;justify-content:center;gap:16px;padding:8px 16px 4px}',
       '.spot-ctrl{background:none;border:none;color:var(--vanta-text-dim,#888);cursor:pointer;padding:6px;border-radius:50%;transition:all .15s;display:flex;align-items:center;justify-content:center}',
       '.spot-ctrl:hover{color:var(--vanta-text,#e8e8e8);background:rgba(255,255,255,0.06)}',
       '.spot-ctrl.active{color:var(--vanta-accent,#7b35f0)}',
-      '.spot-ctrl-main{width:40px;height:40px;background:var(--vanta-accent,#7b35f0);color:#fff;border:none;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:transform .1s}',
-      '.spot-ctrl-main:hover{transform:scale(1.05)}',
-      '.spot-ctrl-main:active{transform:scale(.95)}',
-      '.spot-empty{text-align:center;padding:32px 0;color:var(--vanta-text-dim,#888);font-size:13px}',
+      '.spot-ctrl-main{width:44px;height:44px;background:var(--vanta-accent,#7b35f0);color:#fff;border:none;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;box-shadow:0 2px 12px rgba(123,53,240,0.35)}',
+      '.spot-ctrl-main:hover{transform:scale(1.06);box-shadow:0 4px 20px rgba(123,53,240,0.5)}',
+      '.spot-ctrl-main:active{transform:scale(.94)}',
+
+      '.spot-volume{display:flex;align-items:center;gap:8px;padding:4px 16px 12px}',
+      '.spot-vol-icon{color:var(--vanta-text-dim,#888);flex-shrink:0;display:flex;align-items:center}',
+      '.spot-vol-bar{flex:1;height:4px;background:rgba(255,255,255,0.06);border-radius:2px;cursor:pointer;position:relative}',
+      '.spot-vol-fill{height:100%;background:var(--vanta-accent,#7b35f0);border-radius:2px;transition:width .1s}',
+
+      '.spot-empty{text-align:center;padding:32px 16px;color:var(--vanta-text-dim,#888);font-size:13px}',
       '.spot-empty-icon{margin-bottom:12px;opacity:.3}',
-      '.spot-search-input{width:100%;padding:10px 12px;background:rgba(255,255,255,0.06);color:var(--vanta-text,#e8e8e8);border:1px solid var(--vanta-border,rgba(255,255,255,0.08));border-radius:8px;font-size:13px;outline:none;box-sizing:border-box;margin-bottom:12px}',
+      '.spot-search-input{width:100%;padding:10px 12px;background:rgba(255,255,255,0.06);color:var(--vanta-text,#e8e8e8);border:1px solid var(--vanta-border,rgba(255,255,255,0.08));border-radius:8px;font-size:13px;outline:none;box-sizing:border-box;margin:0 0 12px}',
       '.spot-search-input:focus{border-color:var(--vanta-accent,#7b35f0)}',
       '.spot-search-input::placeholder{color:var(--vanta-text-dim,#888)}',
-      '.spot-result{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:8px;cursor:pointer;transition:background .1s}',
-      '.spot-result:hover{background:rgba(255,255,255,0.04)}',
+      '.spot-search-wrap{padding:0 16px}',
+
+      '.spot-result{display:flex;align-items:center;gap:10px;padding:8px 16px;cursor:pointer;transition:background .1s}',
+      '.spot-result:hover{background:rgba(123,53,240,0.08)}',
+      '.spot-result-art{width:40px;height:40px;border-radius:4px;object-fit:cover;flex-shrink:0}',
+      '.spot-result-art-placeholder{width:40px;height:40px;border-radius:4px;flex-shrink:0;background:rgba(255,255,255,0.04);display:flex;align-items:center;justify-content:center}',
       '.spot-result-info{flex:1;min-width:0}',
-      '.spot-result-name{font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+      '.spot-result-name{font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--vanta-text,#e8e8e8)}',
       '.spot-result-artist{font-size:11px;color:var(--vanta-text-dim,#888);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
       '.spot-result-dur{font-size:11px;color:var(--vanta-text-dim,#888);flex-shrink:0}',
       '.spot-result-play{flex-shrink:0;width:28px;height:28px;border-radius:50%;background:var(--vanta-accent,#7b35f0);color:#fff;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .15s}',
       '.spot-result:hover .spot-result-play{opacity:1}',
-      '.spot-footer{display:flex;justify-content:center;gap:8px;margin-top:20px;padding-top:16px;border-top:1px solid var(--vanta-border,rgba(255,255,255,0.08))}',
+
+      '.spot-footer{display:flex;justify-content:center;gap:8px;padding:12px 16px;border-top:1px solid var(--vanta-border,rgba(255,255,255,0.06))}',
       '.spot-loading{display:flex;justify-content:center;padding:24px;color:var(--vanta-text-dim,#888);font-size:13px}',
-      '.spot-err{color:#ef4444;font-size:12px;text-align:center;padding:8px}',
+      '.spot-err{color:#ef4444;font-size:12px;text-align:center;padding:8px 16px}',
       '.spot-hint{font-size:11px;color:var(--vanta-text-dim,#888);background:rgba(255,255,255,0.03);border:1px solid var(--vanta-border,rgba(255,255,255,0.06));border-radius:8px;padding:10px 14px;max-width:420px;line-height:1.6;text-align:left}',
-      '.spot-hint strong{color:var(--vanta-text,#e8e8e8)}'
+      '.spot-hint strong{color:var(--vanta-text,#e8e8e8)}',
+      '.spot-divider{height:1px;background:var(--vanta-border,rgba(255,255,255,0.06));margin:0}'
     ].join('\n');
 
     var root = document.createElement('div');
@@ -96,12 +132,15 @@
 
     var svgPrev = '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>';
     var svgNext = '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M16 6h2v12h-2zm-10 6l8.5 6V6z" transform="rotate(180 12 12)"/></svg>';
-    var svgPlay = '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M8 5v14l11-7z"/></svg>';
-    var svgPause = '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
+    var svgPlay = '<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M8 5v14l11-7z"/></svg>';
+    var svgPause = '<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
     var svgShuffle = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>';
     var svgRepeat = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>';
     var svgMusic = '<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>';
     var svgSmallPlay = '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M8 5v14l11-7z"/></svg>';
+    var svgVolume = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>';
+    var svgMiniPlayer = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>';
+    var svgSettings = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>';
 
     function fmtTime(ms) {
       var s = Math.floor(ms / 1000); var m = Math.floor(s / 60); s = s % 60;
@@ -153,6 +192,25 @@
       if (searchTimeout) { clearTimeout(searchTimeout); searchTimeout = null; }
     }
 
+    function emitNowPlaying() {
+      var detail = {
+        track: currentTrack ? currentTrack.name : null,
+        artist: currentTrack ? currentTrack.artist : null,
+        album: currentTrack ? currentTrack.album : null,
+        albumArt: albumArtUrl,
+        isPlaying: isPlaying,
+        progressMs: progressMs,
+        durationMs: durationMs
+      };
+      window.__vanta_now_playing = detail;
+      window.dispatchEvent(new CustomEvent('vanta-now-playing', { detail: detail }));
+    }
+
+    function clearNowPlaying() {
+      window.__vanta_now_playing = null;
+      window.dispatchEvent(new CustomEvent('vanta-now-playing', { detail: null }));
+    }
+
     async function exchangeCodeForToken(code) {
       var bodyStr = 'grant_type=authorization_code' +
         '&code=' + encodeURIComponent(code) +
@@ -196,7 +254,7 @@
     }
 
     function showStep1() {
-      clearTimers(); currentTrack = null; root.innerHTML = '';
+      clearTimers(); currentTrack = null; clearNowPlaying(); root.innerHTML = '';
       var wrap = document.createElement('div'); wrap.className = 'spot-setup';
 
       wrap.innerHTML =
@@ -387,7 +445,7 @@
     }
 
     function showExpired() {
-      clearTimers(); token = null; currentTrack = null;
+      clearTimers(); token = null; currentTrack = null; clearNowPlaying();
 
       if (refreshToken && clientId) {
         root.innerHTML = '<div class="spot-loading">Refreshing token\u2026</div>';
@@ -419,6 +477,27 @@
     function showPlayer() {
       clearTimers(); root.innerHTML = '';
 
+      var header = document.createElement('div'); header.className = 'spot-header';
+      var headerLeft = document.createElement('div'); headerLeft.className = 'spot-header-left';
+      var dot = document.createElement('div'); dot.className = 'spot-header-dot';
+      var headerTitle = document.createElement('span'); headerTitle.className = 'spot-header-title'; headerTitle.textContent = 'Spotify';
+      headerLeft.appendChild(dot); headerLeft.appendChild(headerTitle);
+      header.appendChild(headerLeft);
+
+      var headerActions = document.createElement('div'); headerActions.className = 'spot-header-actions';
+      var miniBtn = document.createElement('button'); miniBtn.className = 'spot-icon-btn accent';
+      miniBtn.innerHTML = svgMiniPlayer; miniBtn.title = 'Open Mini Player';
+      miniBtn.onclick = function() {
+        if (window.__vanta_sdk && window.__vanta_sdk.window && window.__vanta_sdk.window.openMiniPlayer) {
+          window.__vanta_sdk.window.openMiniPlayer();
+        } else {
+          api.toast({ title: 'Mini player not available', type: 'info' });
+        }
+      };
+      headerActions.appendChild(miniBtn);
+      header.appendChild(headerActions);
+      root.appendChild(header);
+
       var tabs = document.createElement('div'); tabs.className = 'spot-tabs';
       var tabNow = document.createElement('button'); tabNow.className = 'spot-tab active'; tabNow.textContent = 'Now Playing';
       var tabSearch = document.createElement('button'); tabSearch.className = 'spot-tab'; tabSearch.textContent = 'Search';
@@ -430,15 +509,15 @@
 
       var footer = document.createElement('div'); footer.className = 'spot-footer';
       var reconnectBtn = document.createElement('button');
-      reconnectBtn.className = 'spot-btn spot-btn-outline';
+      reconnectBtn.className = 'spot-btn spot-btn-outline spot-btn-sm';
       reconnectBtn.textContent = 'Reconnect';
-      reconnectBtn.onclick = function() { token = null; currentTrack = null; api.storage.set('spotify-token', ''); clearTimers(); showStep2(); };
+      reconnectBtn.onclick = function() { token = null; currentTrack = null; clearNowPlaying(); api.storage.set('spotify-token', ''); clearTimers(); showStep2(); };
 
       var disconnectBtn = document.createElement('button');
-      disconnectBtn.className = 'spot-btn spot-btn-outline';
+      disconnectBtn.className = 'spot-btn spot-btn-danger spot-btn-sm';
       disconnectBtn.textContent = 'Disconnect';
       disconnectBtn.onclick = async function() {
-        token = null; clientId = null; refreshToken = null; currentTrack = null;
+        token = null; clientId = null; refreshToken = null; currentTrack = null; clearNowPlaying();
         await api.storage.set('spotify-token', '');
         await api.storage.set('spotify-client-id', '');
         await api.storage.set('spotify-refresh-token', '');
@@ -461,32 +540,53 @@
       refreshTimer = setInterval(function() { if (!root.isConnected) { clearTimers(); return; } fetchNowPlaying(); }, 5000);
       progressTimer = setInterval(function() {
         if (!root.isConnected) { clearTimers(); return; }
-        if (isPlaying && durationMs > 0) { progressMs = Math.min(progressMs + 1000, durationMs); updateProgressUI(); }
+        if (isPlaying && durationMs > 0) { progressMs = Math.min(progressMs + 1000, durationMs); updateProgressUI(); emitNowPlaying(); }
       }, 1000);
     }
 
     function renderNowPlaying(container) {
       nowPlayingContainer = container; container.innerHTML = '';
-      var wrap = document.createElement('div'); wrap.className = 'spot-now';
 
       if (!currentTrack) {
-        wrap.innerHTML = '<div class="spot-empty"><div class="spot-empty-icon">' + svgMusic + '</div><div>Nothing is playing</div><div style="font-size:11px;margin-top:4px;color:var(--vanta-text-dim,#888)">Play something on Spotify to see it here</div></div>';
-        container.appendChild(wrap); return;
+        var empty = document.createElement('div'); empty.className = 'spot-empty';
+        empty.innerHTML = '<div class="spot-empty-icon">' + svgMusic + '</div><div>Nothing is playing</div><div style="font-size:11px;margin-top:4px;color:var(--vanta-text-dim,#888)">Play something on Spotify to see it here</div>';
+        container.appendChild(empty);
+        return;
       }
 
-      var trackEl = document.createElement('div'); trackEl.className = 'spot-track'; trackEl.textContent = currentTrack.name;
-      wrap.appendChild(trackEl);
-      var artistEl = document.createElement('div'); artistEl.className = 'spot-artist';
-      artistEl.textContent = currentTrack.artist + (currentTrack.album ? ' \u2022 ' + currentTrack.album : '');
-      wrap.appendChild(artistEl);
+      var artSection = document.createElement('div'); artSection.className = 'spot-art-section';
 
-      var progWrap = document.createElement('div'); progWrap.className = 'spot-progress-wrap';
+      if (albumArtUrl) {
+        var img = document.createElement('img'); img.className = 'spot-art-img';
+        img.src = albumArtUrl; img.alt = 'Album art';
+        img.onerror = function() { img.style.display = 'none'; };
+        artSection.appendChild(img);
+      } else {
+        var placeholder = document.createElement('div'); placeholder.className = 'spot-art-placeholder';
+        placeholder.innerHTML = svgMusic;
+        artSection.appendChild(placeholder);
+      }
+
+      var trackInfo = document.createElement('div'); trackInfo.className = 'spot-track-info';
+      var trackName = document.createElement('div'); trackName.className = 'spot-track-name'; trackName.textContent = currentTrack.name;
+      var trackArtist = document.createElement('div'); trackArtist.className = 'spot-track-artist'; trackArtist.textContent = currentTrack.artist;
+      trackInfo.appendChild(trackName); trackInfo.appendChild(trackArtist);
+      if (currentTrack.album) {
+        var trackAlbum = document.createElement('div'); trackAlbum.className = 'spot-track-album'; trackAlbum.textContent = currentTrack.album;
+        trackInfo.appendChild(trackAlbum);
+      }
+      artSection.appendChild(trackInfo);
+      container.appendChild(artSection);
+
+      var progSection = document.createElement('div'); progSection.className = 'spot-progress-section';
       var pct = durationMs > 0 ? (progressMs / durationMs * 100) : 0;
-      progWrap.innerHTML = '<div class="spot-progress-bar"><div class="spot-progress-fill" style="width:' + pct + '%"></div></div><div class="spot-progress-times"><span>' + fmtTime(progressMs) + '</span><span>' + fmtTime(durationMs) + '</span></div>';
-      progressFillEl = progWrap.querySelector('.spot-progress-fill');
-      progressCurEl = progWrap.querySelector('.spot-progress-times span');
+      progSection.innerHTML =
+        '<div class="spot-progress-bar"><div class="spot-progress-fill" style="width:' + pct + '%"><div class="spot-progress-thumb"></div></div></div>' +
+        '<div class="spot-progress-times"><span>' + fmtTime(progressMs) + '</span><span>' + fmtTime(durationMs) + '</span></div>';
+      progressFillEl = progSection.querySelector('.spot-progress-fill');
+      progressCurEl = progSection.querySelector('.spot-progress-times span');
 
-      var progBar = progWrap.querySelector('.spot-progress-bar');
+      var progBar = progSection.querySelector('.spot-progress-bar');
       progBar.onclick = function(e) {
         if (durationMs <= 0) return;
         var rect = progBar.getBoundingClientRect();
@@ -495,7 +595,7 @@
         progressMs = seekMs; updateProgressUI();
         spotApi('PUT', '/me/player/seek?position_ms=' + seekMs);
       };
-      wrap.appendChild(progWrap);
+      container.appendChild(progSection);
 
       var controls = document.createElement('div'); controls.className = 'spot-controls';
       shuffleBtnRef = makeCtrl(svgShuffle, shuffleState, function() { spotApi('PUT', '/me/player/shuffle?state=' + (!shuffleState)); shuffleState = !shuffleState; shuffleBtnRef.className = 'spot-ctrl' + (shuffleState ? ' active' : ''); });
@@ -507,6 +607,7 @@
         if (isPlaying) { spotApi('PUT', '/me/player/pause'); isPlaying = false; }
         else { spotApi('PUT', '/me/player/play'); isPlaying = true; }
         playPauseBtnRef.innerHTML = isPlaying ? svgPause : svgPlay;
+        emitNowPlaying();
       };
 
       var btnNext = makeCtrl(svgNext, false, function() { spotApi('POST', '/me/player/next'); setTimeout(fetchNowPlaying, 300); });
@@ -518,7 +619,22 @@
 
       controls.appendChild(shuffleBtnRef); controls.appendChild(btnPrev); controls.appendChild(playPauseBtnRef);
       controls.appendChild(btnNext); controls.appendChild(repeatBtnRef);
-      wrap.appendChild(controls); container.appendChild(wrap);
+      container.appendChild(controls);
+
+      var volWrap = document.createElement('div'); volWrap.className = 'spot-volume';
+      var volIcon = document.createElement('div'); volIcon.className = 'spot-vol-icon'; volIcon.innerHTML = svgVolume;
+      var volBar = document.createElement('div'); volBar.className = 'spot-vol-bar';
+      var volFill = document.createElement('div'); volFill.className = 'spot-vol-fill'; volFill.style.width = volumePercent + '%';
+      volBar.appendChild(volFill);
+      volBar.onclick = function(e) {
+        var rect = volBar.getBoundingClientRect();
+        var ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+        volumePercent = Math.round(ratio * 100);
+        volFill.style.width = volumePercent + '%';
+        spotApi('PUT', '/me/player/volume?volume_percent=' + volumePercent);
+      };
+      volWrap.appendChild(volIcon); volWrap.appendChild(volBar);
+      container.appendChild(volWrap);
     }
 
     function makeCtrl(svg, active, handler) {
@@ -537,15 +653,19 @@
         var resp = parseResponse(raw);
         if (resp.code === 401) { showExpired(); return; }
         if (resp.code === 204 || !resp.body) {
-          if (currentTrack !== null) { currentTrack = null; isPlaying = false; if (nowPlayingContainer) renderNowPlaying(nowPlayingContainer); }
+          if (currentTrack !== null) { currentTrack = null; albumArtUrl = null; isPlaying = false; emitNowPlaying(); if (nowPlayingContainer) renderNowPlaying(nowPlayingContainer); }
           return;
         }
         var data = JSON.parse(resp.body);
         isPlaying = !!data.is_playing; shuffleState = !!data.shuffle_state; repeatState = data.repeat_state || 'off'; progressMs = data.progress_ms || 0;
+        if (data.device) volumePercent = data.device.volume_percent || 100;
         if (data.item) {
           durationMs = data.item.duration_ms || 0;
           var artists = (data.item.artists || []).map(function(a) { return a.name; }).join(', ');
           var newId = data.item.id || data.item.uri;
+          var artImages = data.item.album && data.item.album.images ? data.item.album.images : [];
+          albumArtUrl = artImages.length > 0 ? artImages[0].url : null;
+
           if (!currentTrack || currentTrack.id !== newId) {
             currentTrack = { id: newId, name: data.item.name, artist: artists, album: data.item.album ? data.item.album.name : '', uri: data.item.uri };
             if (nowPlayingContainer) renderNowPlaying(nowPlayingContainer);
@@ -555,15 +675,18 @@
             if (shuffleBtnRef) shuffleBtnRef.className = 'spot-ctrl' + (shuffleState ? ' active' : '');
             if (repeatBtnRef) repeatBtnRef.className = 'spot-ctrl' + (repeatState !== 'off' ? ' active' : '');
           }
+          emitNowPlaying();
         }
       } catch (e) { /* retry next interval */ }
     }
 
     function renderSearch(container) {
       nowPlayingContainer = null; container.innerHTML = '';
+      var wrap = document.createElement('div'); wrap.className = 'spot-search-wrap';
       var input = document.createElement('input'); input.className = 'spot-search-input'; input.type = 'text';
       input.placeholder = 'Search for a song, artist, or album\u2026';
-      container.appendChild(input);
+      wrap.appendChild(input);
+      container.appendChild(wrap);
       var results = document.createElement('div'); container.appendChild(results);
 
       input.oninput = function() {
@@ -589,7 +712,22 @@
 
         tracks.forEach(function(track) {
           var artists = (track.artists || []).map(function(a) { return a.name; }).join(', ');
+          var artImages = track.album && track.album.images ? track.album.images : [];
+          var thumbUrl = artImages.length > 1 ? artImages[1].url : (artImages.length > 0 ? artImages[0].url : null);
+
           var row = document.createElement('div'); row.className = 'spot-result';
+
+          if (thumbUrl) {
+            var thumb = document.createElement('img'); thumb.className = 'spot-result-art';
+            thumb.src = thumbUrl; thumb.alt = '';
+            thumb.onerror = function() { thumb.style.display = 'none'; };
+            row.appendChild(thumb);
+          } else {
+            var pholder = document.createElement('div'); pholder.className = 'spot-result-art-placeholder';
+            pholder.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>';
+            row.appendChild(pholder);
+          }
+
           var info = document.createElement('div'); info.className = 'spot-result-info';
           var nameEl = document.createElement('div'); nameEl.className = 'spot-result-name'; nameEl.textContent = track.name;
           var artEl = document.createElement('div'); artEl.className = 'spot-result-artist'; artEl.textContent = artists;
@@ -614,6 +752,21 @@
         api.toast({ title: 'Playing', type: 'success' });
       } catch (e) { api.toast({ title: 'Playback failed', message: String(e), type: 'error' }); }
     }
+
+    window.addEventListener('vanta-spotify-command', function(e) {
+      if (!token) return;
+      var cmd = e.detail;
+      if (cmd === 'play-pause') {
+        if (isPlaying) { spotApi('PUT', '/me/player/pause'); isPlaying = false; }
+        else { spotApi('PUT', '/me/player/play'); isPlaying = true; }
+        if (playPauseBtnRef) playPauseBtnRef.innerHTML = isPlaying ? svgPause : svgPlay;
+        emitNowPlaying();
+      } else if (cmd === 'next') {
+        spotApi('POST', '/me/player/next'); setTimeout(fetchNowPlaying, 300);
+      } else if (cmd === 'prev') {
+        spotApi('POST', '/me/player/previous'); setTimeout(fetchNowPlaying, 300);
+      }
+    });
 
     async function init() {
       try {
