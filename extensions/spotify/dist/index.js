@@ -5,6 +5,7 @@
     var refreshToken = null;
     var clientId = null;
     var codeVerifier = null;
+    var REDIRECT_URI = 'http://127.0.0.1:8888/callback';
     var refreshTimer = null;
     var progressTimer = null;
     var currentTrack = null;
@@ -83,7 +84,9 @@
       '.spot-result:hover .spot-result-play{opacity:1}',
       '.spot-footer{display:flex;justify-content:center;gap:8px;margin-top:20px;padding-top:16px;border-top:1px solid var(--vanta-border,rgba(255,255,255,0.08))}',
       '.spot-loading{display:flex;justify-content:center;padding:24px;color:var(--vanta-text-dim,#888);font-size:13px}',
-      '.spot-err{color:#ef4444;font-size:12px;text-align:center;padding:8px}'
+      '.spot-err{color:#ef4444;font-size:12px;text-align:center;padding:8px}',
+      '.spot-hint{font-size:11px;color:var(--vanta-text-dim,#888);background:rgba(255,255,255,0.03);border:1px solid var(--vanta-border,rgba(255,255,255,0.06));border-radius:8px;padding:10px 14px;max-width:420px;line-height:1.6;text-align:left}',
+      '.spot-hint strong{color:var(--vanta-text,#e8e8e8)}'
     ].join('\n');
 
     var root = document.createElement('div');
@@ -153,7 +156,7 @@
     async function exchangeCodeForToken(code) {
       var bodyStr = 'grant_type=authorization_code' +
         '&code=' + encodeURIComponent(code) +
-        '&redirect_uri=' + encodeURIComponent('http://localhost:1/callback') +
+        '&redirect_uri=' + encodeURIComponent(REDIRECT_URI) +
         '&client_id=' + encodeURIComponent(clientId) +
         '&code_verifier=' + encodeURIComponent(codeVerifier);
 
@@ -201,40 +204,44 @@
         '<div class="spot-setup-title">Connect to Spotify</div>' +
         '<div class="spot-step-label">Step 1 of 2</div>' +
         '<div class="spot-instructions">' +
-          '<div class="spot-instructions-heading">How to connect:</div>' +
+          '<div class="spot-instructions-heading">Setup (one-time only):</div>' +
           '<ol>' +
             '<li>Go to <a class="spot-dash-link">developer.spotify.com/dashboard</a></li>' +
-            '<li>Log in with your Spotify account</li>' +
-            '<li>Click <strong>\u201CCreate App\u201D</strong>' +
+            '<li>Log in and click <strong>\u201CCreate App\u201D</strong></li>' +
+            '<li>Fill in the app details:' +
               '<ul>' +
-                '<li>Name: <strong>Vanta</strong></li>' +
-                '<li>Description: <strong>Music controls</strong></li>' +
-                '<li>Redirect URI: <code>http://localhost:1/callback</code></li>' +
-                '<li>Check <strong>\u201CWeb API\u201D</strong> under APIs used</li>' +
+                '<li>Name: <strong>Vanta</strong> (or anything you like)</li>' +
+                '<li>Description: anything</li>' +
+                '<li>Redirect URI \u2014 type this <strong>exactly</strong>:<br><code>' + REDIRECT_URI + '</code></li>' +
+                '<li>Check <strong>\u201CWeb API\u201D</strong></li>' +
                 '<li>Click <strong>Save</strong></li>' +
               '</ul>' +
             '</li>' +
-            '<li>Copy the <strong>Client ID</strong> from your app page</li>' +
+            '<li>On the app page, click <strong>Settings</strong> and copy the <strong>Client ID</strong></li>' +
           '</ol>' +
         '</div>';
 
       var input = document.createElement('input');
       input.className = 'spot-input'; input.type = 'text';
-      input.placeholder = 'Paste your Client ID\u2026';
+      input.placeholder = 'Paste your Client ID here\u2026';
       wrap.appendChild(input);
 
       var btn = document.createElement('button');
-      btn.className = 'spot-btn'; btn.textContent = 'Next';
+      btn.className = 'spot-btn'; btn.textContent = 'Next \u2192';
       btn.onclick = async function() {
         var val = input.value.trim();
         if (!val) return;
+        if (val.length < 10 || val.includes(' ')) {
+          api.toast({ title: 'Invalid Client ID', message: 'The Client ID should be a long string of letters and numbers with no spaces.', type: 'error' });
+          return;
+        }
         btn.textContent = 'Saving\u2026'; btn.disabled = true;
         try {
           clientId = val;
           await api.storage.set('spotify-client-id', val);
           showStep2();
         } catch (e) {
-          btn.textContent = 'Next'; btn.disabled = false;
+          btn.textContent = 'Next \u2192'; btn.disabled = false;
           api.toast({ title: 'Error', message: 'Failed to save', type: 'error' });
         }
       };
@@ -262,7 +269,7 @@
       var authUrl = 'https://accounts.spotify.com/authorize' +
         '?client_id=' + encodeURIComponent(clientId) +
         '&response_type=code' +
-        '&redirect_uri=' + encodeURIComponent('http://localhost:1/callback') +
+        '&redirect_uri=' + encodeURIComponent(REDIRECT_URI) +
         '&scope=' + encodeURIComponent(scopes) +
         '&code_challenge_method=S256' +
         '&code_challenge=' + challenge +
@@ -273,15 +280,10 @@
       wrap.innerHTML =
         '<div class="spot-setup-icon">' + svgMusic + '</div>' +
         '<div class="spot-setup-title">Authorize Spotify</div>' +
-        '<div class="spot-step-label">Step 2 of 2</div>' +
-        '<div class="spot-setup-desc">' +
-          'Click the button below to open Spotify in your browser.<br><br>' +
-          'After clicking <strong>\u201CAgree\u201D</strong>, you\u2019ll be redirected to a page that won\u2019t load \u2014 <strong>that\u2019s normal</strong>.<br><br>' +
-          'Copy the <strong>entire URL</strong> from your browser\u2019s address bar and paste it below.' +
-        '</div>';
+        '<div class="spot-step-label">Step 2 of 2</div>';
 
       var openBtn = document.createElement('button');
-      openBtn.className = 'spot-btn'; openBtn.textContent = 'Open Spotify Authorization';
+      openBtn.className = 'spot-btn'; openBtn.textContent = '1. Open Spotify Login';
       openBtn.onclick = function() {
         api.shell.execute('xdg-open', [authUrl]).catch(function() {
           api.toast({ title: 'Error', message: 'Could not open browser', type: 'error' });
@@ -290,9 +292,21 @@
       };
       wrap.appendChild(openBtn);
 
+      var hint = document.createElement('div');
+      hint.className = 'spot-hint';
+      hint.innerHTML =
+        '<strong>What to do:</strong><br>' +
+        '1. Click the button above to open Spotify in your browser<br>' +
+        '2. Log in and click <strong>\u201CAgree\u201D</strong><br>' +
+        '3. Your browser will try to load a page that <strong>won\u2019t open</strong> \u2014 that\u2019s expected!<br>' +
+        '4. Look at your browser\u2019s <strong>address bar</strong> \u2014 the URL should start with:<br>' +
+        '<code>' + esc(REDIRECT_URI) + '?code=...</code><br>' +
+        '5. <strong>Copy that entire URL</strong> and paste it below';
+      wrap.appendChild(hint);
+
       var urlInput = document.createElement('input');
       urlInput.className = 'spot-input'; urlInput.type = 'text';
-      urlInput.placeholder = 'Paste the redirect URL here\u2026';
+      urlInput.placeholder = '2. Paste the redirect URL here\u2026';
       wrap.appendChild(urlInput);
 
       var errEl = document.createElement('div');
@@ -300,22 +314,51 @@
       wrap.appendChild(errEl);
 
       var connectBtn = document.createElement('button');
-      connectBtn.className = 'spot-btn'; connectBtn.textContent = 'Connect';
+      connectBtn.className = 'spot-btn'; connectBtn.textContent = '3. Connect';
       connectBtn.onclick = async function() {
         var url = urlInput.value.trim();
         if (!url) return;
         errEl.style.display = 'none';
 
-        var urlObj;
-        try { urlObj = new URL(url); } catch (e) {
-          errEl.textContent = 'Invalid URL. Copy the full URL from your browser.';
-          errEl.style.display = ''; return;
+        if (url.includes('accounts.spotify.com/authorize')) {
+          errEl.innerHTML = '<strong>Wrong URL!</strong> You pasted the Spotify login page URL.<br><br>' +
+            'You need to paste the URL <strong>after</strong> you click \u201CAgree\u201D on Spotify. ' +
+            'That URL starts with <code>' + esc(REDIRECT_URI) + '</code> and the page won\u2019t load \u2014 that\u2019s normal. ' +
+            'Just copy it from your address bar.';
+          errEl.style.display = '';
+          return;
         }
 
-        var code = urlObj.searchParams.get('code');
+        if (url.includes('INVALID_CLIENT') || url.includes('invalid_client')) {
+          errEl.innerHTML = '<strong>Redirect URI mismatch!</strong><br><br>' +
+            'Go to your <a class="spot-dash-link2" style="color:var(--vanta-accent,#7b35f0);cursor:pointer">Spotify Developer Dashboard</a> \u2192 your app \u2192 <strong>Settings</strong> \u2192 <strong>Redirect URIs</strong><br><br>' +
+            'Make sure it contains <strong>exactly</strong>: <code>' + esc(REDIRECT_URI) + '</code><br><br>' +
+            'Remove any old URIs and add this one, then click Save.';
+          errEl.style.display = '';
+          var link2 = errEl.querySelector('.spot-dash-link2');
+          if (link2) link2.onclick = function(e) {
+            e.preventDefault();
+            api.shell.execute('xdg-open', ['https://developer.spotify.com/dashboard']).catch(function(){});
+          };
+          return;
+        }
+
+        var code = null;
+        try {
+          var urlObj = new URL(url);
+          code = urlObj.searchParams.get('code');
+        } catch (e) {
+          code = null;
+          var codeMatch = url.match(/[?&]code=([^&]+)/);
+          if (codeMatch) code = decodeURIComponent(codeMatch[1]);
+        }
+
         if (!code) {
-          errEl.textContent = 'No authorization code found in the URL. Make sure you copied the entire URL after clicking Agree.';
-          errEl.style.display = ''; return;
+          errEl.innerHTML = 'No authorization code found in the URL.<br><br>' +
+            'The URL you paste should look like:<br><code>' + esc(REDIRECT_URI) + '?code=AQDx7...</code><br><br>' +
+            'Make sure you copied the URL from your browser\u2019s address bar <strong>after</strong> clicking Agree on Spotify.';
+          errEl.style.display = '';
+          return;
         }
 
         connectBtn.textContent = 'Connecting\u2026'; connectBtn.disabled = true;
@@ -325,11 +368,11 @@
           refreshToken = tokenData.refresh_token || null;
           await api.storage.set('spotify-token', token);
           if (refreshToken) await api.storage.set('spotify-refresh-token', refreshToken);
-          api.toast({ title: 'Connected to Spotify', type: 'success' });
+          api.toast({ title: 'Connected to Spotify!', type: 'success' });
           showPlayer();
         } catch (e) {
-          connectBtn.textContent = 'Connect'; connectBtn.disabled = false;
-          errEl.textContent = 'Failed to connect: ' + (e.message || String(e));
+          connectBtn.textContent = '3. Connect'; connectBtn.disabled = false;
+          errEl.textContent = 'Failed: ' + (e.message || String(e));
           errEl.style.display = '';
         }
       };
@@ -364,9 +407,7 @@
       wrap.innerHTML =
         '<div class="spot-setup-icon">' + svgMusic + '</div>' +
         '<div class="spot-setup-title">Session Expired</div>' +
-        '<div class="spot-setup-desc">' +
-          'Your session has expired.<br>Click below to reconnect.' +
-        '</div>';
+        '<div class="spot-setup-desc">Your session has expired.<br>Click below to reconnect.</div>';
 
       var btn = document.createElement('button');
       btn.className = 'spot-btn'; btn.textContent = 'Reconnect';
