@@ -1,0 +1,17 @@
+{
+  "name": "weather",
+  "title": "Weather",
+  "version": "1.0.0",
+  "description": "Check weather for any location with forecasts and saved locations",
+  "author": "Vanta Team",
+  "icon": "icon.png",
+  "permissions": ["Network"],
+  "commands": [
+    {
+      "name": "current",
+      "title": "Weather",
+      "subtitle": "View current weather and forecast",
+      "mode": "view"
+    }
+  ]
+}

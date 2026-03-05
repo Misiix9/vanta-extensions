@@ -1,0 +1,12 @@
+{
+  "name": "network-test",
+  "title": "Network Test",
+  "version": "1.0.0",
+  "description": "View network info, test connectivity and speed",
+  "author": "Vanta Team",
+  "icon": "icon.png",
+  "permissions": ["Network", "Shell"],
+  "commands": [
+    {"name": "info", "title": "Network Info", "subtitle": "View IP, DNS, and interfaces", "mode": "view"}
+  ]
+}

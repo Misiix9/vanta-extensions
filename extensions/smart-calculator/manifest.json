@@ -1,0 +1,17 @@
+{
+  "name": "smart-calculator",
+  "title": "Smart Calculator",
+  "version": "1.0.0",
+  "description": "Advanced calculator with unit conversions and history",
+  "author": "Vanta Team",
+  "icon": "icon.png",
+  "permissions": [],
+  "commands": [
+    {
+      "name": "calculate",
+      "title": "Smart Calculator",
+      "subtitle": "Calculate with unit conversions",
+      "mode": "view"
+    }
+  ]
+}

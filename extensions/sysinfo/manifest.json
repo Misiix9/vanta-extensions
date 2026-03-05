@@ -1,0 +1,12 @@
+{
+  "name": "sysinfo",
+  "title": "System Info",
+  "version": "1.0.0",
+  "description": "View system information and resource usage",
+  "author": "Vanta Team",
+  "icon": "icon.png",
+  "permissions": ["Shell"],
+  "commands": [
+    {"name": "overview", "title": "System Info", "subtitle": "View OS, CPU, RAM, and disk info", "mode": "view"}
+  ]
+}

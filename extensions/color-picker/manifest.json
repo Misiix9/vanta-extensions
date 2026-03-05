@@ -1,0 +1,17 @@
+{
+  "name": "color-picker",
+  "title": "Color Picker",
+  "version": "1.0.0",
+  "description": "Pick colors, view conversions, and copy to clipboard",
+  "author": "Vanta Team",
+  "icon": "icon.png",
+  "permissions": [],
+  "commands": [
+    {
+      "name": "pick",
+      "title": "Color Picker",
+      "subtitle": "Pick and convert colors",
+      "mode": "view"
+    }
+  ]
+}

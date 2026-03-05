@@ -1,0 +1,12 @@
+{
+  "name": "timer",
+  "title": "Timer",
+  "version": "1.0.0",
+  "description": "Countdown timer with presets and visual progress",
+  "author": "Vanta Team",
+  "icon": "icon.png",
+  "permissions": [],
+  "commands": [
+    {"name": "start", "title": "Timer", "subtitle": "Set a countdown timer", "mode": "view"}
+  ]
+}

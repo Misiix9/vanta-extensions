@@ -1,0 +1,75 @@
+{
+  "version": 1,
+  "extensions": [
+    {
+      "name": "weather",
+      "title": "Weather",
+      "version": "1.0.0",
+      "description": "Check weather for any location with forecasts and saved locations",
+      "author": "Vanta Team",
+      "icon": "icon.png",
+      "permissions": ["Network"],
+      "commands_count": 1
+    },
+    {
+      "name": "smart-calculator",
+      "title": "Smart Calculator",
+      "version": "1.0.0",
+      "description": "Advanced calculator with unit conversions and history",
+      "author": "Vanta Team",
+      "icon": "icon.png",
+      "permissions": [],
+      "commands_count": 1
+    },
+    {
+      "name": "color-picker",
+      "title": "Color Picker",
+      "version": "1.0.0",
+      "description": "Pick colors, view conversions, and copy to clipboard",
+      "author": "Vanta Team",
+      "icon": "icon.png",
+      "permissions": [],
+      "commands_count": 1
+    },
+    {
+      "name": "task-manager",
+      "title": "Task Manager",
+      "version": "1.0.0",
+      "description": "Manage tasks with priorities and due dates",
+      "author": "Vanta Team",
+      "icon": "icon.png",
+      "permissions": [],
+      "commands_count": 1
+    },
+    {
+      "name": "network-test",
+      "title": "Network Test",
+      "version": "1.0.0",
+      "description": "View network info, test connectivity and speed",
+      "author": "Vanta Team",
+      "icon": "icon.png",
+      "permissions": ["Network", "Shell"],
+      "commands_count": 1
+    },
+    {
+      "name": "timer",
+      "title": "Timer",
+      "version": "1.0.0",
+      "description": "Countdown timer with presets and visual progress",
+      "author": "Vanta Team",
+      "icon": "icon.png",
+      "permissions": [],
+      "commands_count": 1
+    },
+    {
+      "name": "sysinfo",
+      "title": "System Info",
+      "version": "1.0.0",
+      "description": "View system information and resource usage",
+      "author": "Vanta Team",
+      "icon": "icon.png",
+      "permissions": ["Shell"],
+      "commands_count": 1
+    }
+  ]
+}
