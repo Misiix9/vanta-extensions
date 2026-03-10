@@ -23,6 +23,9 @@
     var repeatBtnRef = null;
     var searchTimeout = null;
     var albumArtUrl = null;
+    var lyricsText = null;
+    var lyricsFetchKey = null;
+    var lyricsCache = {};
 
     var style = document.createElement('style');
     style.textContent = [
@@ -98,6 +101,10 @@
       '.spot-vol-icon{color:var(--vanta-text-dim,#888);flex-shrink:0;display:flex;align-items:center}',
       '.spot-vol-bar{flex:1;height:4px;background:rgba(255,255,255,0.06);border-radius:2px;cursor:pointer;position:relative}',
       '.spot-vol-fill{height:100%;background:var(--vanta-accent,#7b35f0);border-radius:2px;transition:width .1s}',
+      '.spot-lyrics{margin:0 16px 12px;padding:10px 12px;background:rgba(255,255,255,0.03);border:1px solid var(--vanta-border,rgba(255,255,255,0.08));border-radius:8px;max-height:150px;overflow:auto}',
+      '.spot-lyrics-title{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--vanta-text-dim,#999);margin-bottom:6px}',
+      '.spot-lyrics-line{font-size:12px;line-height:1.45;color:var(--vanta-text,#e8e8e8);margin:0 0 3px}',
+      '.spot-lyrics-empty{font-size:12px;color:var(--vanta-text-dim,#888)}',
 
       '.spot-empty{text-align:center;padding:32px 16px;color:var(--vanta-text-dim,#888);font-size:13px}',
       '.spot-empty-icon{margin-bottom:12px;opacity:.3}',
@@ -200,7 +207,9 @@
         albumArt: albumArtUrl,
         isPlaying: isPlaying,
         progressMs: progressMs,
-        durationMs: durationMs
+        durationMs: durationMs,
+        volumePercent: volumePercent,
+        lyrics: lyricsText
       };
       window.__vanta_now_playing = detail;
       window.dispatchEvent(new CustomEvent('vanta-now-playing', { detail: detail }));
@@ -209,6 +218,53 @@
     function clearNowPlaying() {
       window.__vanta_now_playing = null;
       window.dispatchEvent(new CustomEvent('vanta-now-playing', { detail: null }));
+    }
+
+    async function fetchLyrics(trackName, artistName) {
+      var key = (trackName || '') + '::' + (artistName || '');
+      if (!trackName || !artistName) {
+        lyricsText = null;
+        lyricsFetchKey = null;
+        emitNowPlaying();
+        return;
+      }
+      if (lyricsCache[key] !== undefined) {
+        lyricsText = lyricsCache[key];
+        lyricsFetchKey = key;
+        emitNowPlaying();
+        return;
+      }
+      lyricsFetchKey = key;
+      try {
+        var raw = await api.shell.execute('curl', [
+          '-s',
+          'https://lrclib.net/api/get?track_name=' + encodeURIComponent(trackName) + '&artist_name=' + encodeURIComponent(artistName)
+        ]);
+        var parsed = null;
+        try {
+          parsed = JSON.parse((raw || '').trim() || '{}');
+        } catch (e) {
+          parsed = null;
+        }
+
+        var out = null;
+        if (parsed) {
+          out = parsed.plainLyrics || parsed.syncedLyrics || null;
+          if (out && typeof out === 'string' && out.length > 2400) out = out.slice(0, 2400);
+        }
+
+        lyricsCache[key] = out;
+        if (lyricsFetchKey === key) {
+          lyricsText = out;
+          emitNowPlaying();
+        }
+      } catch (e) {
+        lyricsCache[key] = null;
+        if (lyricsFetchKey === key) {
+          lyricsText = null;
+          emitNowPlaying();
+        }
+      }
     }
 
     async function exchangeCodeForToken(code) {
@@ -445,7 +501,7 @@
     }
 
     function showExpired() {
-      clearTimers(); token = null; currentTrack = null; clearNowPlaying();
+      clearTimers(); token = null; currentTrack = null; lyricsText = null; clearNowPlaying();
 
       if (refreshToken && clientId) {
         root.innerHTML = '<div class="spot-loading">Refreshing token\u2026</div>';
@@ -635,6 +691,21 @@
       };
       volWrap.appendChild(volIcon); volWrap.appendChild(volBar);
       container.appendChild(volWrap);
+
+      var lyricsWrap = document.createElement('div'); lyricsWrap.className = 'spot-lyrics';
+      var lyricsTitle = document.createElement('div'); lyricsTitle.className = 'spot-lyrics-title'; lyricsTitle.textContent = 'Lyrics';
+      lyricsWrap.appendChild(lyricsTitle);
+      if (lyricsText && lyricsText.trim()) {
+        lyricsText.split('\n').map(function(line) { return line.trim(); }).filter(function(line) { return line.length > 0; }).slice(0, 30).forEach(function(line) {
+          var row = document.createElement('div'); row.className = 'spot-lyrics-line'; row.textContent = line;
+          lyricsWrap.appendChild(row);
+        });
+      } else {
+        var empty = document.createElement('div'); empty.className = 'spot-lyrics-empty';
+        empty.textContent = 'Lyrics unavailable for this track.';
+        lyricsWrap.appendChild(empty);
+      }
+      container.appendChild(lyricsWrap);
     }
 
     function makeCtrl(svg, active, handler) {
@@ -653,7 +724,7 @@
         var resp = parseResponse(raw);
         if (resp.code === 401) { showExpired(); return; }
         if (resp.code === 204 || !resp.body) {
-          if (currentTrack !== null) { currentTrack = null; albumArtUrl = null; isPlaying = false; emitNowPlaying(); if (nowPlayingContainer) renderNowPlaying(nowPlayingContainer); }
+          if (currentTrack !== null) { currentTrack = null; albumArtUrl = null; lyricsText = null; isPlaying = false; emitNowPlaying(); if (nowPlayingContainer) renderNowPlaying(nowPlayingContainer); }
           return;
         }
         var data = JSON.parse(resp.body);
@@ -662,12 +733,15 @@
         if (data.item) {
           durationMs = data.item.duration_ms || 0;
           var artists = (data.item.artists || []).map(function(a) { return a.name; }).join(', ');
+          var primaryArtist = data.item.artists && data.item.artists[0] ? data.item.artists[0].name : artists;
           var newId = data.item.id || data.item.uri;
           var artImages = data.item.album && data.item.album.images ? data.item.album.images : [];
           albumArtUrl = artImages.length > 0 ? artImages[0].url : null;
 
           if (!currentTrack || currentTrack.id !== newId) {
             currentTrack = { id: newId, name: data.item.name, artist: artists, album: data.item.album ? data.item.album.name : '', uri: data.item.uri };
+            lyricsText = null;
+            fetchLyrics(data.item.name, primaryArtist);
             if (nowPlayingContainer) renderNowPlaying(nowPlayingContainer);
           } else {
             updateProgressUI();
@@ -755,7 +829,8 @@
 
     window.addEventListener('vanta-spotify-command', function(e) {
       if (!token) return;
-      var cmd = e.detail;
+      var payload = e.detail;
+      var cmd = typeof payload === 'object' && payload ? payload.cmd : payload;
       if (cmd === 'play-pause') {
         if (isPlaying) { spotApi('PUT', '/me/player/pause'); isPlaying = false; }
         else { spotApi('PUT', '/me/player/play'); isPlaying = true; }
@@ -765,6 +840,14 @@
         spotApi('POST', '/me/player/next'); setTimeout(fetchNowPlaying, 300);
       } else if (cmd === 'prev') {
         spotApi('POST', '/me/player/previous'); setTimeout(fetchNowPlaying, 300);
+      } else if (cmd === 'set-volume') {
+        var val = typeof payload === 'object' && payload ? Number(payload.value) : NaN;
+        if (!isNaN(val)) {
+          volumePercent = Math.max(0, Math.min(100, Math.round(val)));
+          spotApi('PUT', '/me/player/volume?volume_percent=' + volumePercent);
+          if (nowPlayingContainer) renderNowPlaying(nowPlayingContainer);
+          emitNowPlaying();
+        }
       }
     });
 
