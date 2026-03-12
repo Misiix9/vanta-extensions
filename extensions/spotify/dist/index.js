@@ -133,12 +133,18 @@
       '.spot-result:hover .spot-result-play{opacity:1}',
 
       '.spot-footer{display:flex;justify-content:center;gap:8px;padding:8px 16px;border-top:1px solid rgba(255,255,255,0.06)}',
+      '.spot-hover-footer{position:absolute;bottom:0;left:0;right:0;display:flex;justify-content:center;gap:10px;padding:10px 16px;z-index:20;opacity:0;transition:opacity .2s ease;pointer-events:none}',
+      '.spot-player:hover .spot-hover-footer,.spot-hover-footer:hover{opacity:1;pointer-events:auto}',
+      '.spot-hover-btn{font-size:11px;padding:4px 14px;border-radius:6px;border:none;background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.6);cursor:pointer;transition:all .15s;backdrop-filter:blur(12px)}',
+      '.spot-hover-btn:hover{background:rgba(255,255,255,0.14);color:#fff}',
+      '.spot-hover-btn-danger{color:rgba(239,68,68,0.7)}',
+      '.spot-hover-btn-danger:hover{background:rgba(239,68,68,0.15);color:#ef4444}',
       '.spot-loading{display:flex;justify-content:center;padding:24px;color:rgba(255,255,255,0.5);font-size:13px}',
       '.spot-err{color:#ef4444;font-size:12px;text-align:center;padding:8px 16px}',
       '.spot-hint{font-size:11px;color:rgba(255,255,255,0.5);background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:10px 14px;max-width:420px;line-height:1.6;text-align:left}',
       '.spot-hint strong{color:#fff}',
       '.spot-divider{height:1px;background:rgba(255,255,255,0.06);margin:0}',
-      '.spot-content-scroll{flex:1;overflow-y:auto;overflow-x:hidden;min-height:0;display:flex;flex-direction:column}',
+      '.spot-content-scroll{flex:1;overflow:hidden;min-height:0;display:flex;flex-direction:column}',
       '.spot-browse-section{margin-bottom:16px}',
       '.spot-browse-title{font-size:14px;font-weight:600;color:rgba(255,255,255,0.85);padding:0 16px;margin-bottom:8px}',
       '.spot-browse-scroll{display:flex;gap:10px;padding:0 16px;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none}',
@@ -257,9 +263,7 @@
       window.__vanta_now_playing = detail;
       window.dispatchEvent(new CustomEvent('vanta-now-playing', { detail: detail }));
       try {
-        if (window.__TAURI__ && window.__TAURI__.event && window.__TAURI__.event.emit) {
-          window.__TAURI__.event.emit('spotify-now-playing-relay', detail);
-        }
+        api.events.emit('spotify-now-playing-relay', detail);
       } catch (e) { /* ignore */ }
     }
 
@@ -267,9 +271,7 @@
       window.__vanta_now_playing = null;
       window.dispatchEvent(new CustomEvent('vanta-now-playing', { detail: null }));
       try {
-        if (window.__TAURI__ && window.__TAURI__.event && window.__TAURI__.event.emit) {
-          window.__TAURI__.event.emit('spotify-now-playing-relay', null);
-        }
+        api.events.emit('spotify-now-playing-relay', null);
       } catch (e) { /* ignore */ }
     }
 
@@ -651,13 +653,12 @@
       var miniBtn = document.createElement('button'); miniBtn.className = 'spot-icon-btn accent';
       miniBtn.innerHTML = svgMiniPlayer; miniBtn.title = 'Open Mini Player';
       miniBtn.onclick = function() {
-        if (window.__vanta_sdk && window.__vanta_sdk.window && window.__vanta_sdk.window.openMiniPlayer) {
-          window.__vanta_sdk.window.openMiniPlayer();
-        } else {
+        api.window.openMiniPlayer().catch(function() {
           api.toast({ title: 'Mini player not available', type: 'info' });
-        }
+        });
       };
       headerActions.appendChild(miniBtn);
+
       header.appendChild(headerActions);
       root.appendChild(header);
 
@@ -672,15 +673,14 @@
       content.style.cssText = 'position:relative;z-index:2';
       root.appendChild(content);
 
-      var footer = document.createElement('div'); footer.className = 'spot-footer';
-      footer.style.cssText = 'position:relative;z-index:2';
+      // Hover-reveal footer at bottom
+      var footer = document.createElement('div'); footer.className = 'spot-hover-footer';
       var reconnectBtn = document.createElement('button');
-      reconnectBtn.className = 'spot-btn spot-btn-outline spot-btn-sm';
+      reconnectBtn.className = 'spot-hover-btn';
       reconnectBtn.textContent = 'Reconnect';
       reconnectBtn.onclick = function() { token = null; currentTrack = null; clearNowPlaying(); api.storage.set('spotify-token', ''); clearTimers(); showStep2(); };
-
       var disconnectBtn = document.createElement('button');
-      disconnectBtn.className = 'spot-btn spot-btn-danger spot-btn-sm';
+      disconnectBtn.className = 'spot-hover-btn spot-hover-btn-danger';
       disconnectBtn.textContent = 'Disconnect';
       disconnectBtn.onclick = async function() {
         token = null; clientId = null; refreshToken = null; currentTrack = null; clearNowPlaying();
@@ -690,7 +690,6 @@
         await api.storage.set('spotify-code-verifier', '');
         clearTimers(); showStep1();
       };
-
       footer.appendChild(reconnectBtn); footer.appendChild(disconnectBtn);
       root.appendChild(footer);
 
@@ -1223,34 +1222,31 @@
 
       // Listen for Tauri command relay from mini player
       try {
-        if (window.__TAURI__ && window.__TAURI__.event && window.__TAURI__.event.listen) {
-          window.__TAURI__.event.listen('spotify-command-relay', function(event) {
-            if (!token) return;
-            var payload = event.payload;
-            var cmd = typeof payload === 'object' && payload ? payload.cmd : payload;
-            if (cmd === 'play-pause') {
-              if (isPlaying) { spotApi('PUT', '/me/player/pause'); isPlaying = false; }
-              else { spotApi('PUT', '/me/player/play'); isPlaying = true; }
-              if (playPauseBtnRef) playPauseBtnRef.innerHTML = isPlaying ? svgPause : svgPlay;
+        api.events.listen('spotify-command-relay', function(payload) {
+          if (!token) return;
+          var cmd = typeof payload === 'object' && payload ? payload.cmd : payload;
+          if (cmd === 'play-pause') {
+            if (isPlaying) { spotApi('PUT', '/me/player/pause'); isPlaying = false; }
+            else { spotApi('PUT', '/me/player/play'); isPlaying = true; }
+            if (playPauseBtnRef) playPauseBtnRef.innerHTML = isPlaying ? svgPause : svgPlay;
+            emitNowPlaying();
+          } else if (cmd === 'next') {
+            spotApi('POST', '/me/player/next'); setTimeout(fetchNowPlaying, 300); setTimeout(fetchNowPlaying, 1200);
+          } else if (cmd === 'prev') {
+            spotApi('POST', '/me/player/previous'); setTimeout(fetchNowPlaying, 300); setTimeout(fetchNowPlaying, 1200);
+          } else if (cmd === 'set-volume') {
+            var val = typeof payload === 'object' && payload ? Number(payload.value) : NaN;
+            if (!isNaN(val)) {
+              volumePercent = Math.max(0, Math.min(100, Math.round(val)));
+              spotApi('PUT', '/me/player/volume?volume_percent=' + volumePercent);
               emitNowPlaying();
-            } else if (cmd === 'next') {
-              spotApi('POST', '/me/player/next'); setTimeout(fetchNowPlaying, 300); setTimeout(fetchNowPlaying, 1200);
-            } else if (cmd === 'prev') {
-              spotApi('POST', '/me/player/previous'); setTimeout(fetchNowPlaying, 300); setTimeout(fetchNowPlaying, 1200);
-            } else if (cmd === 'set-volume') {
-              var val = typeof payload === 'object' && payload ? Number(payload.value) : NaN;
-              if (!isNaN(val)) {
-                volumePercent = Math.max(0, Math.min(100, Math.round(val)));
-                spotApi('PUT', '/me/player/volume?volume_percent=' + volumePercent);
-                emitNowPlaying();
-              }
             }
-          });
-          // Listen for state requests from mini player
-          window.__TAURI__.event.listen('spotify-request-state', function() {
-            if (token && currentTrack) emitNowPlaying();
-          });
-        }
+          }
+        });
+        // Listen for state requests from mini player
+        api.events.listen('spotify-request-state', function() {
+          if (token && currentTrack) emitNowPlaying();
+        });
       } catch (e) { /* ignore */ }
 
       if (token) { showPlayer(); }
