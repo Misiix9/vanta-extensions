@@ -28,6 +28,8 @@
     var syncedLines = null;
     var lyricsLineEls = [];
     var lyricsWrapEl = null;
+    var requestSequence = 0;
+    var lastAppliedSequence = -1;
 
     var style = document.createElement('style');
     style.textContent = [
@@ -247,17 +249,25 @@
     }
 
     function emitNowPlaying() {
+      var track = currentTrack;
+      var art = albumArtUrl;
+      var playing = isPlaying;
+      var progress = progressMs;
+      var duration = durationMs;
+      var volume = volumePercent;
+      var lyrics = lyricsText;
+      var synced = syncedLines;
       var detail = {
-        track: currentTrack ? currentTrack.name : null,
-        artist: currentTrack ? currentTrack.artist : null,
-        album: currentTrack ? currentTrack.album : null,
-        albumArt: albumArtUrl,
-        isPlaying: isPlaying,
-        progressMs: progressMs,
-        durationMs: durationMs,
-        volumePercent: volumePercent,
-        lyrics: lyricsText,
-        syncedLines: syncedLines
+        track: track ? track.name : null,
+        artist: track ? track.artist : null,
+        album: track ? track.album : null,
+        albumArt: art,
+        isPlaying: playing,
+        progressMs: progress,
+        durationMs: duration,
+        volumePercent: volume,
+        lyrics: lyrics,
+        syncedLines: synced
       };
       window.__vanta_now_playing = detail;
       window.dispatchEvent(new CustomEvent('vanta-now-playing', { detail: detail }));
@@ -893,13 +903,18 @@
         lyricsLineEls[j].className = j === activeIdx ? 'spot-lyrics-line spot-lyrics-active' : 'spot-lyrics-line';
       }
       var el = lyricsLineEls[activeIdx];
-      if (el && el.parentElement) el.scrollIntoView({block: 'center', behavior: 'smooth'});
+      if (el && el.parentElement) el.scrollIntoView({block: 'center', behavior: 'auto'});
     }
 
     async function fetchNowPlaying() {
+      var requestId = ++requestSequence;
       try {
         var raw = await spotApi('GET', '/me/player');
         var resp = parseResponse(raw);
+
+        if (requestId < lastAppliedSequence) return;
+        lastAppliedSequence = requestId;
+
         if (resp.code === 401) { showExpired(); return; }
         if (resp.code === 204 || !resp.body) {
           if (currentTrack !== null) { currentTrack = null; albumArtUrl = null; lyricsText = null; syncedLines = null; isPlaying = false; emitNowPlaying(); if (nowPlayingContainer) renderNowPlaying(nowPlayingContainer); }
@@ -925,8 +940,10 @@
             var bgEl = root.querySelector('.spot-player-bg');
             if (bgEl) bgEl.style.backgroundImage = albumArtUrl ? 'url(' + albumArtUrl + ')' : 'none';
             if (nowPlayingContainer) renderNowPlaying(nowPlayingContainer);
+            updateLyricsHighlight();
           } else {
             updateProgressUI();
+            updateLyricsHighlight();
             if (playPauseBtnRef) playPauseBtnRef.innerHTML = isPlaying ? svgPause : svgPlay;
             if (shuffleBtnRef) shuffleBtnRef.className = 'spot-ctrl' + (shuffleState ? ' active' : '');
             if (repeatBtnRef) repeatBtnRef.className = 'spot-ctrl' + (repeatState !== 'off' ? ' active' : '');
